@@ -97,6 +97,7 @@ function setResetBadge(n) {
 
 function showPage(name) {
   toggleSettings(false);
+  if (name === 'users' && me?.role !== 'admin') name = 'home'; // solo administradores
   $$('.page').forEach((p) => p.classList.toggle('hidden', p.id !== `page-${name}`));
   $$('#menu a').forEach((a) => a.classList.toggle('active', a.dataset.page === name));
   if (name === 'users') loadUsers();

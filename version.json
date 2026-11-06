@@ -1,4 +1,4 @@
 {
-  "version": "2026-11-06.3",
-  "notes": "Cuadrado USUARIOS en el inicio y cambio de rol desde la tabla"
+  "version": "2026-11-06.4",
+  "notes": "Usuarios: acceso exclusivo del administrador"
 }
