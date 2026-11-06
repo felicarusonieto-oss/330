@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aberturas</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ PANTALLAS DE ACCESO ============ -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="brand">
+        <div class="brand-logo">▦</div>
+        <h1 class="app-name">Aberturas</h1>
+      </div>
+
+      <!-- Login -->
+      <form id="login-form" class="auth-view">
+        <h2>Ingresar</h2>
+        <label>Usuario
+          <input name="username" autocomplete="username" required autofocus />
+        </label>
+        <label>Contraseña
+          <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="msg" data-msg></p>
+        <button type="submit" class="btn primary block">Ingresar</button>
+        <a href="#" class="link" data-go="forgot-form">¿Olvidaste tu contraseña?</a>
+      </form>
+
+      <!-- Olvidé contraseña -->
+      <form id="forgot-form" class="auth-view hidden">
+        <h2>Olvidé mi contraseña</h2>
+        <p class="hint">Ingresá tu usuario. El administrador va a recibir el aviso y te va a dar una clave temporal.</p>
+        <label>Usuario
+          <input name="username" autocomplete="username" required />
+        </label>
+        <p class="msg" data-msg></p>
+        <button type="submit" class="btn primary block">Enviar solicitud</button>
+        <a href="#" class="link" data-go="login-form">← Volver al ingreso</a>
+      </form>
+
+      <!-- Cambio de clave obligatorio -->
+      <form id="force-change-form" class="auth-view hidden">
+        <h2>Cambiá tu contraseña</h2>
+        <p class="hint">Por seguridad tenés que elegir una contraseña nueva antes de continuar.</p>
+        <label>Nueva contraseña
+          <input name="password" type="password" autocomplete="new-password" minlength="6" required />
+        </label>
+        <label>Repetir contraseña
+          <input name="password2" type="password" autocomplete="new-password" minlength="6" required />
+        </label>
+        <p class="msg" data-msg></p>
+        <button type="submit" class="btn primary block">Guardar y continuar</button>
+        <a href="#" class="link" data-action="logout">Salir</a>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ APLICACIÓN ============ -->
+  <div id="app-screen" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand small">
+        <div class="brand-logo">▦</div>
+        <span class="app-name">Aberturas</span>
+      </div>
+      <nav id="menu">
+        <a href="#" data-page="users" class="admin-only">
+          <span class="ico">👥</span> Usuarios
+          <span id="reset-badge" class="badge hidden"></span>
+        </a>
+        <a href="#" data-page="my-password"><span class="ico">🔑</span> Cambiar mi clave</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="current-user" class="current-user"></div>
+        <button class="btn ghost block" data-action="logout">Salir</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <!-- Inicio -->
+      <section id="page-home" class="page">
+        <h1>Bienvenido</h1>
+        <p class="hint">Usá el menú de la izquierda.</p>
+      </section>
+
+      <!-- Usuarios (solo admin) -->
+      <section id="page-users" class="page hidden">
+        <div class="page-head">
+          <h1>Usuarios</h1>
+          <button class="btn primary" id="btn-new-user">+ Nuevo usuario</button>
+        </div>
+
+        <div id="reset-requests" class="card warn hidden">
+          <h3>Solicitudes de “Olvidé mi contraseña”</h3>
+          <ul id="reset-list"></ul>
+        </div>
+
+        <div class="card">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Clave</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Mi clave -->
+      <section id="page-my-password" class="page hidden">
+        <h1>Cambiar mi clave</h1>
+        <form id="my-password-form" class="card narrow">
+          <label>Nueva contraseña
+            <input name="password" type="password" autocomplete="new-password" minlength="6" required />
+          </label>
+          <label>Repetir contraseña
+            <input name="password2" type="password" autocomplete="new-password" minlength="6" required />
+          </label>
+          <p class="msg" data-msg></p>
+          <button class="btn primary" type="submit">Guardar</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============ MODALES ============ -->
+  <dialog id="dlg-user" class="modal">
+    <form method="dialog" id="user-form">
+      <h2 data-title>Nuevo usuario</h2>
+      <label>Usuario
+        <input name="username" required pattern="[A-Za-z0-9._\-]{3,30}"
+               title="3 a 30 caracteres: letras, números, punto o guion" />
+      </label>
+      <label>Nombre y apellido
+        <input name="full_name" />
+      </label>
+      <label>Rol
+        <select name="role">
+          <option value="user">Usuario común</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </label>
+      <label class="only-new">Clave temporal
+        <input name="password" type="text" minlength="6" />
+      </label>
+      <label class="only-edit check"><input name="active" type="checkbox" /> Activo</label>
+      <p class="hint only-new">El usuario deberá cambiar la clave en su primer ingreso.</p>
+      <p class="msg" data-msg></p>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary" value="ok">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-password" class="modal">
+    <form method="dialog" id="password-form">
+      <h2>Asignar clave temporal</h2>
+      <p class="hint">Usuario: <b data-username></b>. Deberá cambiarla al ingresar.</p>
+      <label>Clave temporal
+        <input name="password" type="text" minlength="6" required />
+      </label>
+      <p class="msg" data-msg></p>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn primary" value="ok">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
