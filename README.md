@@ -45,6 +45,11 @@ Abrir http://localhost:5500 e ingresar con `felipe` / `1234`.
 2. **Settings → Pages → Branch: main / (root) → Save**.
 3. La app queda en `https://<tu-usuario>.github.io/<repositorio>/`.
 
+## Publicar una versión nueva
+1. Cambiar `version` (y `notes`) en `version.json`, por ejemplo `2026-11-07.1`.
+2. Subir a GitHub. En ~1 minuto GitHub Pages publica.
+3. Quien tenga la app abierta ve un globito naranja junto a las **flechitas**; al tocarlas se carga la versión nueva (sin caché).
+
 ## Notas técnicas
 - Supabase Auth exige email: internamente cada usuario es `<usuario>@aberturas.local`. El usuario nunca lo ve.
 - Las altas y cambios de clave se hacen con funciones SQL `security definer` que verifican que quien llama sea admin; así no hace falta exponer la *service role key* ni tener servidor propio.

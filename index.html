@@ -4,7 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>330</title>
-  <link rel="stylesheet" href="styles.css" />
+  <style>body { visibility: hidden; }</style>
+  <script>
+    // Carga los estilos y el código siempre en su última versión (evita la caché del navegador).
+    (async () => {
+      let v = String(Date.now());
+      try {
+        const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+        v = (await r.json()).version;
+      } catch (e) {}
+      window.APP_VERSION = v;
+      const q = '?v=' + encodeURIComponent(v);
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'styles.css' + q;
+      document.head.appendChild(css);
+      import('./js/app.js' + q);
+    })();
+  </script>
 </head>
 <body>
   <!-- ============ PANTALLAS DE ACCESO ============ -->
@@ -70,6 +87,23 @@
         </svg>
         <span id="gear-badge" class="dot hidden"></span>
       </button>
+
+      <!-- Flechitas de actualización -->
+      <button id="btn-update" class="gear" title="Actualizar" aria-label="Actualizar">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/>
+          <path d="M3 21v-5h5"/>
+          <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/>
+          <path d="M21 3v5h-5"/>
+        </svg>
+        <span id="update-badge" class="dot hidden"></span>
+      </button>
+      <div id="update-bubble" class="bubble hidden" role="status">
+        <b>¡Hay una versión nueva!</b>
+        <span id="update-notes"></span>
+        <small>Tocá las flechitas para actualizar.</small>
+      </div>
 
       <div id="settings-menu" class="settings-menu hidden">
         <div id="current-user" class="current-user"></div>
@@ -175,6 +209,5 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="js/app.js"></script>
 </body>
 </html>

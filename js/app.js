@@ -1,5 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_DOMAIN } from './config.js';
+// config.js se pide con la misma versión que app.js para que tampoco quede en caché
+const { SUPABASE_URL, SUPABASE_ANON_KEY, EMAIL_DOMAIN } =
+  await import('./config.js' + new URL(import.meta.url).search);
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -320,8 +322,39 @@ $('#password-form').addEventListener('submit', async (e) => {
   loadUsers();
 });
 
+// ---------------------------------------------------------------- actualizaciones
+// Cada vez que se publica un cambio se sube el número en version.json.
+// La app lo revisa cada minuto (y al volver a la pestaña) y avisa con un globito.
+let latestVersion = window.APP_VERSION;
+
+async function checkForUpdate() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const { version, notes } = await r.json();
+    latestVersion = version;
+    const hasUpdate = window.APP_VERSION && version !== window.APP_VERSION;
+    $('#update-badge').classList.toggle('hidden', !hasUpdate);
+    $('#update-bubble').classList.toggle('hidden', !hasUpdate);
+    $('#update-notes').textContent = notes || '';
+    $('#btn-update').title = hasUpdate ? 'Hay una versión nueva: tocá para actualizar' : `Actualizar (versión ${window.APP_VERSION})`;
+  } catch (e) { /* sin conexión: se reintenta en el próximo ciclo */ }
+}
+
+function forceUpdate() {
+  $('#btn-update').classList.add('spinning');
+  // URL nueva => el navegador vuelve a pedir todo al servidor
+  const url = new URL(location.href);
+  url.searchParams.set('v', latestVersion || Date.now());
+  location.replace(url);
+}
+
+setInterval(checkForUpdate, 60_000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
+checkForUpdate();
+
 // ---------------------------------------------------------------- eventos generales
 document.addEventListener('click', (e) => {
+  if (e.target.closest('#btn-update, #update-bubble')) return forceUpdate();
   if (e.target.closest('#btn-settings')) return toggleSettings();
   if (!e.target.closest('#settings-menu')) toggleSettings(false);
 
