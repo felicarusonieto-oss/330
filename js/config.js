@@ -7,4 +7,4 @@ export const SUPABASE_ANON_KEY = 'sb_publishable_v612STQfBuHI7W5nCKVRmw_LAeW-Bi_
 // Debe coincidir con el dominio usado en supabase/schema.sql
 export const EMAIL_DOMAIN = 'aberturas.local';
 
-export const APP_NAME = 'Aberturas';
+export const APP_NAME = '330';

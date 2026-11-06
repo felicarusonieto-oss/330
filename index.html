@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aberturas</title>
+  <title>330</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -12,7 +12,7 @@
     <div class="auth-card">
       <div class="brand">
         <div class="brand-logo">▦</div>
-        <h1 class="app-name">Aberturas</h1>
+        <h1 class="app-name">330</h1>
       </div>
 
       <!-- Login -->
@@ -60,30 +60,32 @@
 
   <!-- ============ APLICACIÓN ============ -->
   <div id="app-screen" class="app hidden">
-    <aside class="sidebar">
-      <div class="brand small">
-        <div class="brand-logo">▦</div>
-        <span class="app-name">Aberturas</span>
-      </div>
-      <nav id="menu">
-        <a href="#" data-page="users" class="admin-only">
-          <span class="ico">👥</span> Usuarios
-          <span id="reset-badge" class="badge hidden"></span>
-        </a>
-        <a href="#" data-page="my-password"><span class="ico">🔑</span> Cambiar mi clave</a>
-      </nav>
-      <div class="sidebar-footer">
+    <!-- Tuerquita de configuración -->
+    <aside class="rail">
+      <button id="btn-settings" class="gear" title="Configuración" aria-label="Configuración" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span id="gear-badge" class="dot hidden"></span>
+      </button>
+
+      <div id="settings-menu" class="settings-menu hidden">
         <div id="current-user" class="current-user"></div>
-        <button class="btn ghost block" data-action="logout">Salir</button>
+        <nav id="menu">
+          <a href="#" data-page="users" class="admin-only">
+            Usuarios <span id="reset-badge" class="badge hidden"></span>
+          </a>
+          <a href="#" data-page="my-password">Cambiar mi clave</a>
+          <a href="#" data-action="logout">Salir</a>
+        </nav>
       </div>
     </aside>
 
     <main class="content">
-      <!-- Inicio -->
-      <section id="page-home" class="page">
-        <h1>Bienvenido</h1>
-        <p class="hint">Usá el menú de la izquierda.</p>
-      </section>
+      <!-- Inicio: en blanco por ahora -->
+      <section id="page-home" class="page"></section>
 
       <!-- Usuarios (solo admin) -->
       <section id="page-users" class="page hidden">

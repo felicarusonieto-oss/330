@@ -1,4 +1,4 @@
-# Aberturas – Sistema de gestión
+# 330 – Sistema de gestión (aberturas de aluminio)
 
 Web app estática (HTML + JS, sin compilación) con **Supabase** como base de datos y autenticación.
 Se puede publicar gratis con **GitHub Pages**.

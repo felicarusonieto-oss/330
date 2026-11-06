@@ -67,10 +67,32 @@ function showApp() {
   $$('.admin-only').forEach((el) => el.classList.toggle('hidden', !isAdmin));
   $('#current-user').innerHTML =
     `<b>${escapeHtml(me.full_name || me.username)}</b><br><small>${isAdmin ? 'Administrador' : 'Usuario'}</small>`;
-  showPage(isAdmin ? 'users' : 'home');
+  toggleSettings(false);
+  showPage('home');
+  if (isAdmin) refreshResetCount();
+}
+
+function toggleSettings(open) {
+  const menu = $('#settings-menu');
+  const show = open ?? menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !show);
+  $('#btn-settings').setAttribute('aria-expanded', String(show));
+}
+
+async function refreshResetCount() {
+  const { count } = await sb.from('password_reset_requests')
+    .select('id', { count: 'exact', head: true }).is('resolved_at', null);
+  setResetBadge(count || 0);
+}
+
+function setResetBadge(n) {
+  $('#reset-badge').textContent = n;
+  $('#reset-badge').classList.toggle('hidden', n === 0);
+  $('#gear-badge').classList.toggle('hidden', n === 0);
 }
 
 function showPage(name) {
+  toggleSettings(false);
   $$('.page').forEach((p) => p.classList.toggle('hidden', p.id !== `page-${name}`));
   $$('#menu a').forEach((a) => a.classList.toggle('active', a.dataset.page === name));
   if (name === 'users') loadUsers();
@@ -192,11 +214,8 @@ function renderUsers() {
 
 function renderRequests(reqs) {
   const byId = Object.fromEntries(users.map((u) => [u.id, u]));
-  const box = $('#reset-requests');
-  const badge = $('#reset-badge');
-  box.classList.toggle('hidden', reqs.length === 0);
-  badge.classList.toggle('hidden', reqs.length === 0);
-  badge.textContent = reqs.length;
+  $('#reset-requests').classList.toggle('hidden', reqs.length === 0);
+  setResetBadge(reqs.length);
   $('#reset-list').innerHTML = reqs.map((r) => {
     const u = byId[r.profile_id] || {};
     const when = new Date(r.created_at).toLocaleString('es-AR');
@@ -303,13 +322,16 @@ $('#password-form').addEventListener('submit', async (e) => {
 
 // ---------------------------------------------------------------- eventos generales
 document.addEventListener('click', (e) => {
+  if (e.target.closest('#btn-settings')) return toggleSettings();
+  if (!e.target.closest('#settings-menu')) toggleSettings(false);
+
   const go = e.target.closest('[data-go]');
   if (go) { e.preventDefault(); showAuth(go.dataset.go); }
 
   const page = e.target.closest('[data-page]');
   if (page) { e.preventDefault(); showPage(page.dataset.page); }
 
-  if (e.target.closest('[data-action="logout"]')) { e.preventDefault(); logout(); }
+  if (e.target.closest('[data-action="logout"]')) { e.preventDefault(); toggleSettings(false); logout(); }
 
   const close = e.target.closest('[data-close]');
   if (close) close.closest('dialog').close();
