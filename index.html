@@ -118,11 +118,26 @@
     </aside>
 
     <main class="content">
-      <!-- Inicio: en blanco por ahora -->
-      <section id="page-home" class="page"></section>
+      <!-- Inicio: cuadrados de opciones -->
+      <section id="page-home" class="page">
+        <div class="tiles">
+          <a href="#" class="tile admin-only" data-page="users">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span class="tile-title">USUARIOS</span>
+            <span id="tile-badge" class="badge hidden"></span>
+          </a>
+        </div>
+      </section>
 
       <!-- Usuarios (solo admin) -->
       <section id="page-users" class="page hidden">
+        <a href="#" class="back" data-page="home">← Inicio</a>
         <div class="page-head">
           <h1>Usuarios</h1>
           <button class="btn primary" id="btn-new-user">+ Nuevo usuario</button>
@@ -147,6 +162,7 @@
 
       <!-- Mi clave -->
       <section id="page-my-password" class="page hidden">
+        <a href="#" class="back" data-page="home">← Inicio</a>
         <h1>Cambiar mi clave</h1>
         <form id="my-password-form" class="card narrow">
           <label>Nueva contraseña

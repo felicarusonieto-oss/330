@@ -91,6 +91,8 @@ function setResetBadge(n) {
   $('#reset-badge').textContent = n;
   $('#reset-badge').classList.toggle('hidden', n === 0);
   $('#gear-badge').classList.toggle('hidden', n === 0);
+  $('#tile-badge').textContent = n;
+  $('#tile-badge').classList.toggle('hidden', n === 0);
 }
 
 function showPage(name) {
@@ -204,7 +206,12 @@ function renderUsers() {
     <tr class="${u.active ? '' : 'inactive'}">
       <td><b>${escapeHtml(u.username)}</b></td>
       <td>${escapeHtml(u.full_name)}</td>
-      <td><span class="tag ${u.role}">${u.role === 'admin' ? 'Administrador' : 'Usuario'}</span></td>
+      <td>
+        <select class="role-select ${u.role}" data-role="${u.id}" ${u.id === me.id ? 'disabled title="No podés cambiar tu propio rol"' : ''}>
+          <option value="user" ${u.role === 'user' ? 'selected' : ''}>Usuario</option>
+          <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
+        </select>
+      </td>
       <td>${u.active ? '<span class="tag ok">Activo</span>' : '<span class="tag off">Inactivo</span>'}</td>
       <td>${u.must_change_password ? '<span class="tag pending">Debe cambiarla</span>' : '—'}</td>
       <td class="actions">
@@ -243,6 +250,28 @@ $('#page-users').addEventListener('click', async (e) => {
     loadUsers();
   }
 });
+
+// Cambio de rol directo desde la tabla
+$('#page-users').addEventListener('change', async (e) => {
+  const sel = e.target.closest('[data-role]');
+  if (!sel) return;
+  const u = users.find((x) => x.id === sel.dataset.role);
+  const role = sel.value;
+  const label = role === 'admin' ? 'Administrador' : 'Usuario';
+  if (!confirmRole(u, label)) { sel.value = u.role; return; }
+  sel.disabled = true;
+  const { error } = await sb.rpc('admin_update_user', {
+    p_user_id: u.id, p_full_name: u.full_name, p_role: role, p_active: u.active,
+  });
+  sel.disabled = false;
+  if (error) { sel.value = u.role; return toast(friendlyError(error)); }
+  toast(`${u.username} ahora es ${label}`);
+  loadUsers();
+});
+
+function confirmRole(u, label) {
+  return window.confirm(`¿Cambiar a "${u.username}" a ${label}?`);
+}
 
 $('#btn-new-user').addEventListener('click', () => openUserDialog(null));
 
