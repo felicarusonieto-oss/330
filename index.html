@@ -121,6 +121,38 @@
       <!-- Inicio: cuadrados de opciones -->
       <section id="page-home" class="page">
         <div class="tiles">
+          <a href="#" class="tile admin-only" data-module="ventas">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+            <span class="tile-title">VENTAS</span>
+          </a>
+          <a href="#" class="tile admin-only" data-module="compras">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.6 12.4a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 7H6"/></svg>
+            <span class="tile-title">COMPRAS</span>
+          </a>
+          <a href="#" class="tile admin-only" data-module="monotributo">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+            <span class="tile-title">MONOTRIBUTO</span>
+          </a>
+          <a href="#" class="tile admin-only" data-module="gastos">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 10v5M18 10v5"/></svg>
+            <span class="tile-title">GASTOS HORMIGA</span>
+          </a>
+          <a href="#" class="tile" data-module="tareas-taller">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <span class="tile-title">TAREAS TALLER</span>
+            <span id="badge-tareas-taller" class="badge hidden"></span>
+          </a>
+          <a href="#" class="tile" data-module="tareas-oficina">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 13l2 2 4-4"/></svg>
+            <span class="tile-title">TAREAS OFICINA</span>
+            <span id="badge-tareas-oficina" class="badge hidden"></span>
+          </a>
           <a href="#" class="tile admin-only" data-page="users">
             <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -159,6 +191,9 @@
           </table>
         </div>
       </section>
+
+      <!-- Módulos (Ventas, Compras, etc.): se dibujan desde js/modules/*.js -->
+      <section id="page-module" class="page hidden"></section>
 
       <!-- Mi clave -->
       <section id="page-my-password" class="page hidden">
@@ -222,6 +257,13 @@
       </div>
     </form>
   </dialog>
+
+  <!-- Formulario genérico que usan los módulos -->
+  <dialog id="dlg-form" class="modal">
+    <form id="form-generic" novalidate></form>
+  </dialog>
+
+  <datalist id="dl-proveedores"></datalist>
 
   <div id="toast" class="toast hidden"></div>
 

@@ -100,8 +100,138 @@ function showPage(name) {
   if (name === 'users' && me?.role !== 'admin') name = 'home'; // solo administradores
   $$('.page').forEach((p) => p.classList.toggle('hidden', p.id !== `page-${name}`));
   $$('#menu a').forEach((a) => a.classList.toggle('active', a.dataset.page === name));
+  if (name === 'home' && me) refreshTaskBadges();
   if (name === 'users') loadUsers();
   if (name === 'my-password') { $('#my-password-form').reset(); setMsg($('#my-password-form'), ''); }
+}
+
+// ---------------------------------------------------------------- módulos
+// Cada módulo vive en js/modules/<archivo>.js y exporta render(contenedor, ctx, opciones)
+const V = new URL(import.meta.url).search;
+const MODULES = {
+  ventas:           { file: 'ventas',      admin: true },
+  compras:          { file: 'compras',     admin: true },
+  monotributo:      { file: 'monotributo', admin: true },
+  gastos:           { file: 'gastos',      admin: true },
+  'tareas-taller':  { file: 'tareas',      opts: { area: 'taller' } },
+  'tareas-oficina': { file: 'tareas',      opts: { area: 'oficina' } },
+};
+
+async function openModule(name) {
+  const mod = MODULES[name];
+  if (!mod || (mod.admin && me?.role !== 'admin')) return showPage('home');
+  showPage('module');
+  const el = $('#page-module');
+  el.onclick = el.onchange = el.oninput = null; // limpia eventos del módulo anterior
+  el.innerHTML = '<p class="hint">Cargando…</p>';
+  try {
+    const m = await import(`./modules/${mod.file}.js${V}`);
+    await m.render(el, ctx, mod.opts || {});
+  } catch (e) {
+    el.innerHTML = `${ctx.backLink}<div class="card"><p class="msg error">${escapeHtml(friendlyError(e))}</p></div>`;
+  }
+}
+
+async function refreshTaskBadges() {
+  for (const area of ['taller', 'oficina']) {
+    const { count } = await sb.from('tareas').select('id', { count: 'exact', head: true })
+      .eq('area', area).eq('asignado_a', me.id).neq('estado', 'hecha');
+    const b = $(`#badge-tareas-${area}`);
+    b.textContent = count || 0;
+    b.classList.toggle('hidden', !count);
+  }
+}
+
+// --- herramientas compartidas con los módulos
+const moneyFmt = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+const isoDate = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+const ctx = {
+  sb,
+  $, $$,
+  esc: escapeHtml,
+  toast,
+  get me() { return me; },
+  get isAdmin() { return me?.role === 'admin'; },
+  backLink: '<a href="#" class="back" data-page="home">← Inicio</a>',
+  money: (n) => moneyFmt.format(Number(n) || 0),
+  // "15/11/2026" a partir de "2026-11-15"
+  date: (d) => { if (!d) return ''; const [y, m, dd] = String(d).slice(0, 10).split('-'); return `${dd}/${m}/${y}`; },
+  today: () => isoDate(new Date()),
+  monthNow: () => isoDate(new Date()).slice(0, 7),
+  // "2026-11" -> { from: "2026-11-01", to: "2026-12-01" } (to excluido)
+  monthRange: (ym) => {
+    const [y, m] = ym.split('-').map(Number);
+    return { from: `${ym}-01`, to: isoDate(new Date(y, m, 1)) };
+  },
+  addMonths: (ym, n) => { const [y, m] = ym.split('-').map(Number); return isoDate(new Date(y, m - 1 + n, 1)).slice(0, 7); },
+  monthName: (ym) => {
+    const [y, m] = ym.split('-').map(Number);
+    const s = new Date(y, m - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  },
+  // Acepta "1500", "1500,50", "1.500,50", "1500.5", "$ 1.500"
+  num: (s) => {
+    let t = String(s ?? '').replace(/[^\d.,-]/g, '');
+    if (!t) return 0;
+    if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+    else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+    const n = parseFloat(t);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+  },
+  // Devuelve los datos o lanza el error de Supabase
+  must: (res) => { if (res.error) throw res.error; return res.data; },
+  usersBasic: [],
+  async loadUsersBasic() {
+    const { data } = await sb.rpc('list_users_basic');
+    this.usersBasic = data || [];
+    return this.usersBasic;
+  },
+  userName(id) {
+    const u = this.usersBasic.find((x) => x.id === id);
+    return u ? (u.full_name || u.username) : '—';
+  },
+  async loadProveedores() {
+    const { data } = await sb.from('compras').select('proveedor').order('proveedor').limit(2000);
+    const list = [...new Set((data || []).map((r) => r.proveedor))];
+    $('#dl-proveedores').innerHTML = list.map((p) => `<option value="${escapeHtml(p)}">`).join('');
+    return list;
+  },
+  confirm: (msg) => window.confirm(msg),
+  openForm,
+};
+
+// Abre el formulario genérico. submit(form) debe lanzar un error si algo falla.
+function openForm({ title, html, submitLabel = 'Guardar', wide = false, init, submit }) {
+  const dlg = $('#dlg-form');
+  const f = $('#form-generic');
+  dlg.classList.toggle('wide', wide);
+  f.innerHTML = `<h2>${escapeHtml(title)}</h2>${html}
+    <p class="msg" data-msg></p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-close>Cancelar</button>
+      <button type="submit" class="btn primary">${escapeHtml(submitLabel)}</button>
+    </div>`;
+  return new Promise((resolve) => {
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      setMsg(f, '');
+      busy(f, true);
+      try {
+        const r = await submit(f);
+        dlg.close();
+        resolve(r ?? true);
+      } catch (err) {
+        setMsg(f, friendlyError(err));
+      } finally {
+        busy(f, false);
+      }
+    };
+    dlg.onclose = () => resolve(false);
+    dlg.showModal();
+    init?.(f);
+    f.querySelector('input:not([type=hidden]), select, textarea')?.focus();
+  });
 }
 
 // ---------------------------------------------------------------- sesión
@@ -393,6 +523,9 @@ document.addEventListener('click', (e) => {
 
   const page = e.target.closest('[data-page]');
   if (page) { e.preventDefault(); showPage(page.dataset.page); }
+
+  const mod = e.target.closest('[data-module]');
+  if (mod) { e.preventDefault(); openModule(mod.dataset.module); }
 
   if (e.target.closest('[data-action="logout"]')) { e.preventDefault(); toggleSettings(false); logout(); }
 

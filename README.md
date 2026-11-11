@@ -14,12 +14,25 @@ Se puede publicar gratis con **GitHub Pages**.
 
 Administrador inicial: **usuario `felipe` / clave `1234`** (el usuario no distingue mayúsculas: `Felipe` también funciona). Pide cambio de clave al entrar.
 
+## Módulos (cuadrados del inicio)
+| Módulo | Quién lo ve | Qué hace |
+|---|---|---|
+| **Ventas** | Admin | Precio final + compras de la venta (valor de compra total) → **utilidad automática**. Permite sumar compras “sin asignar”. |
+| **Compras** | Admin | Monto, proveedor y detalle. Una compra nueva se asocia sola a la última venta (se puede cambiar). Totales por proveedor. |
+| **Monotributo** | Admin | Mes a mes: cuota (pagada/no, comprobante) y facturas emitidas/recibidas con su PDF o foto. Facturado últimos 12 meses. |
+| **Gastos hormiga** | Admin | Gastos chicos por categoría, total y promedio diario del mes. |
+| **Tareas Taller / Oficina** | Todos | Se crean, se asignan a cualquier usuario y se marcan como hechas. Cada uno ve las suyas; el admin ve todas. |
+| **Usuarios** | Admin | Alta, roles, activar/desactivar, claves. |
+
+La base de datos de los módulos está en `supabase/02_modulos.sql` (ejecutar después de `schema.sql`).
+
 ## Estructura
 ```
 index.html            Pantallas (login, olvidé clave, cambio obligatorio, panel)
 styles.css            Estilos
 js/config.js          URL y anon key de Supabase  <-- completar
-js/app.js             Lógica
+js/app.js             Lógica general (ingreso, menú, usuarios, herramientas comunes)
+js/modules/*.js       Un archivo por módulo (ventas, compras, monotributo, gastos, tareas)
 supabase/schema.sql   Tablas, seguridad (RLS), funciones y usuario admin inicial
 serve.ps1             Servidor local para probar (no requiere instalar nada)
 ```
