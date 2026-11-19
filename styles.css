@@ -272,3 +272,23 @@ textarea {
   .table { font-size: 13px; }
   .card { overflow-x: auto; }
 }
+
+/* Medio de pago (Gastos hormiga) */
+.field-label { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+.pay-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.pay-option { position: relative; margin: 0; cursor: pointer; }
+.pay-option input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
+.pay-option span {
+  display: block; text-align: center; padding: 10px 6px; border: 2px solid var(--line); border-radius: 10px;
+  font-size: 14px; font-weight: 600; color: var(--text); transition: border-color .12s, background .12s;
+}
+.pay-option:hover span { border-color: #b8c4d2; }
+.pay-option input:checked + span { color: #fff; }
+.pay-option input:focus-visible + span { outline: 2px solid #b8d3f0; }
+.pay-mercado_pago input:checked + span, .pago-mercado_pago.tag { background: #009ee3; border-color: #009ee3; color: #fff; }
+.pay-banco input:checked + span,        .pago-banco.tag        { background: #1f5f9e; border-color: #1f5f9e; color: #fff; }
+.pay-naranja_x input:checked + span,    .pago-naranja_x.tag    { background: #fe5000; border-color: #fe5000; color: #fff; }
+.pay-efectivo input:checked + span,     .pago-efectivo.tag     { background: #1e8449; border-color: #1e8449; color: #fff; }
+.chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+.chips:has(.chips-row) { flex-direction: column; align-items: flex-start; }
+

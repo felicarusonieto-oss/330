@@ -1,5 +1,6 @@
 // GASTOS HORMIGA: gastos chicos del día a día, con total mensual y por categoría.
 const CATEGORIAS = ['Comida / café', 'Nafta / transporte', 'Ferretería', 'Librería', 'Limpieza', 'Herramientas', 'Otros'];
+const MEDIOS = { mercado_pago: 'Mercado Pago', banco: 'Banco', naranja_x: 'Naranja X', efectivo: 'Efectivo' };
 
 export async function render(el, ctx) {
   const { sb, esc, money, date, must } = ctx;
@@ -23,7 +24,7 @@ export async function render(el, ctx) {
     <div class="chips" data-chips></div>
     <div class="card">
       <table class="table">
-        <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th class="num">Monto</th><th></th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Pagado con</th><th class="num">Monto</th><th></th></tr></thead>
         <tbody data-rows></tbody>
       </table>
     </div>
@@ -53,22 +54,32 @@ export async function render(el, ctx) {
       <div class="stat"><span>Cantidad</span><b>${rows.length}</b></div>`;
 
     const byCat = {};
-    rows.forEach((r) => { byCat[r.categoria] = (byCat[r.categoria] || 0) + Number(r.monto); });
-    q('[data-chips]').innerHTML = Object.entries(byCat).sort((a, b) => b[1] - a[1])
-      .map(([c, m]) => `<span class="chip">${esc(c)}<b>${money(m)}</b></span>`).join('');
+    const byMedio = {};
+    rows.forEach((r) => {
+      byCat[r.categoria] = (byCat[r.categoria] || 0) + Number(r.monto);
+      const m = MEDIOS[r.medio_pago] || 'Sin indicar';
+      byMedio[m] = (byMedio[m] || 0) + Number(r.monto);
+    });
+    const chips = (obj, cls) => Object.entries(obj).sort((a, b) => b[1] - a[1])
+      .map(([c, m]) => `<span class="chip ${cls}">${esc(c)}<b>${money(m)}</b></span>`).join('');
+    q('[data-chips]').innerHTML = rows.length
+      ? `<div class="chips-row"><small class="muted">Por medio de pago:</small>${chips(byMedio, 'medio')}</div>
+         <div class="chips-row"><small class="muted">Por categoría:</small>${chips(byCat, '')}</div>`
+      : '';
 
     q('[data-rows]').innerHTML = rows.length ? rows.map((r) => `
       <tr>
         <td>${date(r.fecha)}</td>
         <td>${esc(r.descripcion)}</td>
         <td><span class="tag">${esc(r.categoria)}</span></td>
+        <td>${r.medio_pago ? `<span class="tag pago-${r.medio_pago}">${MEDIOS[r.medio_pago]}</span>` : '<span class="muted">—</span>'}</td>
         <td class="num">${money(r.monto)}</td>
         <td class="actions">
           <button class="btn small" data-edit="${r.id}">Editar</button>
           <button class="btn small danger" data-del="${r.id}">Borrar</button>
         </td>
       </tr>`).join('')
-      : '<tr><td colspan="5" class="empty">No hay gastos en este mes.</td></tr>';
+      : '<tr><td colspan="6" class="empty">No hay gastos en este mes.</td></tr>';
   }
 
   el.onchange = null;
@@ -96,13 +107,29 @@ export async function render(el, ctx) {
           <label>Monto <input name="monto" inputmode="decimal" placeholder="$ 0" value="${g?.monto ?? ''}" /></label>
         </div>
         <label>Descripción <input name="descripcion" value="${esc(g?.descripcion ?? '')}" placeholder="Ej: tornillos, café, estacionamiento" /></label>
-        <label>Categoría <input name="categoria" list="dl-categorias" value="${esc(g?.categoria ?? '')}" placeholder="Elegí o escribí una" /></label>`,
+        <label>Categoría <input name="categoria" list="dl-categorias" value="${esc(g?.categoria ?? '')}" placeholder="Elegí o escribí una" /></label>
+        <div class="field-label">¿Cómo lo pagaste?</div>
+        <div class="pay-options">
+          ${Object.entries(MEDIOS).map(([k, v]) => `
+            <label class="pay-option pay-${k}">
+              <input type="radio" name="medio_pago" value="${k}" ${g?.medio_pago === k ? 'checked' : ''} />
+              <span>${v}</span>
+            </label>`).join('')}
+        </div>`,
+      init(f) {
+        // tocar de nuevo la opción marcada la desmarca
+        f.querySelectorAll('[name=medio_pago]').forEach((r) => {
+          r.onmousedown = () => { r.dataset.was = r.checked ? '1' : ''; };
+          r.onclick = () => { if (r.dataset.was) r.checked = false; };
+        });
+      },
       async submit(f) {
         const data = {
           fecha: f.fecha.value,
           monto: ctx.num(f.monto.value),
           descripcion: f.descripcion.value.trim(),
           categoria: f.categoria.value.trim() || 'Otros',
+          medio_pago: f.querySelector('[name=medio_pago]:checked')?.value ?? null,
         };
         if (!data.fecha) throw new Error('Poné la fecha.');
         if (!data.monto) throw new Error('Poné el monto.');
