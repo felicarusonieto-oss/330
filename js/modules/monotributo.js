@@ -1,9 +1,12 @@
-// MONOTRIBUTO: cuota del mes + facturas emitidas/recibidas con su archivo (PDF o foto), mes a mes.
+// MONOTRIBUTO: una carpeta por mes (desde mayo 2026, se agrega sola cada mes nuevo).
+// Dentro de cada carpeta: cuota del mes + facturas emitidas/recibidas con su archivo (PDF o foto).
 const BUCKET = 'facturas';
+const INICIO = '2026-05'; // primera carpeta
 
 export async function render(el, ctx) {
   const { sb, esc, money, date, must } = ctx;
   let month = ctx.monthNow();
+  let view = 'folders'; // folders | month
   let facturas = [];
   let mes = null;
 
@@ -13,6 +16,16 @@ export async function render(el, ctx) {
       <h1>Monotributo</h1>
       <button class="btn primary" data-new>+ Cargar factura</button>
     </div>
+
+    <!-- Vista de carpetas -->
+    <div data-folders-view>
+      <div class="summary-bar" data-summary></div>
+      <div class="folders" data-folders></div>
+    </div>
+
+    <!-- Vista de un mes (dentro de la carpeta) -->
+    <div data-month-view class="hidden">
+    <button type="button" class="back back-btn" data-to-folders>← Todas las carpetas</button>
     <div class="toolbar">
       <div class="month-nav">
         <button class="btn small" data-prev>‹</button>
@@ -33,10 +46,74 @@ export async function render(el, ctx) {
       <table class="table"><thead><tr>
         <th>Fecha</th><th>Número</th><th>Proveedor</th><th class="num">Monto</th><th>Archivo</th><th></th>
       </tr></thead><tbody data-recibidas></tbody></table>
+    </div>
     </div>`;
 
   const q = (s) => el.querySelector(s);
   const periodo = (ym) => `${ym}-01`;
+
+  // Lista de meses desde INICIO hasta el mes actual (el mes nuevo aparece solo)
+  function meses() {
+    const list = [];
+    for (let ym = INICIO; ym <= ctx.monthNow(); ym = ctx.addMonths(ym, 1)) list.push(ym);
+    return list;
+  }
+
+  function show(v) {
+    view = v;
+    q('[data-folders-view]').classList.toggle('hidden', v !== 'folders');
+    q('[data-month-view]').classList.toggle('hidden', v !== 'month');
+    return v === 'folders' ? loadFolders() : load();
+  }
+
+  async function loadFolders() {
+    const list = meses();
+    const [fs, cs] = await Promise.all([
+      sb.from('facturas').select('periodo, tipo, monto').gte('periodo', periodo(INICIO)),
+      sb.from('monotributo_meses').select('periodo, pagado').gte('periodo', periodo(INICIO)),
+    ]);
+    const tot = {};
+    list.forEach((ym) => { tot[ym] = { emit: 0, reci: 0, cant: 0 }; });
+    must(fs).forEach((f) => {
+      const t = tot[f.periodo.slice(0, 7)];
+      if (!t) return;
+      t.cant++;
+      if (f.tipo === 'emitida') t.emit += Number(f.monto); else t.reci += Number(f.monto);
+    });
+    const pagado = {};
+    must(cs).forEach((c) => { pagado[c.periodo.slice(0, 7)] = c.pagado; });
+
+    const totalFacturado = list.reduce((a, ym) => a + tot[ym].emit, 0);
+    const totalRecibido = list.reduce((a, ym) => a + tot[ym].reci, 0);
+    const promedio = totalFacturado / list.length;
+    const mejor = list.reduce((b, ym) => (tot[ym].emit > tot[b].emit ? ym : b), list[0]);
+
+    q('[data-summary]').innerHTML = `
+      <div><span>Total facturado</span><b>${money(totalFacturado)}</b>
+        <small>${ctx.monthName(INICIO)} a ${ctx.monthName(ctx.monthNow())}</small></div>
+      <div><span>Promedio por mes</span><b>${money(promedio)}</b>
+        <small>${list.length} ${list.length === 1 ? 'mes' : 'meses'}</small></div>
+      <div><span>Mes con más facturación</span><b>${tot[mejor].emit ? ctx.monthName(mejor) : '—'}</b>
+        <small>${tot[mejor].emit ? money(tot[mejor].emit) : 'Sin facturas todavía'}</small></div>
+      <div><span>Facturas recibidas</span><b>${money(totalRecibido)}</b><small>de proveedores</small></div>`;
+
+    const hoy = ctx.monthNow();
+    q('[data-folders]').innerHTML = [...list].reverse().map((ym) => {
+      const t = tot[ym];
+      const cuota = pagado[ym] === true ? '<span class="dot-ok" title="Cuota pagada">● Cuota pagada</span>'
+        : pagado[ym] === false ? '<span class="dot-off" title="Cuota sin pagar">● Cuota sin pagar</span>'
+        : '<span class="muted">Cuota sin cargar</span>';
+      return `
+        <button class="folder ${ym === hoy ? 'current' : ''}" data-folder="${ym}">
+          <svg class="folder-ico" viewBox="0 0 24 24" width="44" height="44" aria-hidden="true">
+            <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.38a1.5 1.5 0 0 1 1.06.44L11.5 7h8A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/>
+          </svg>
+          <span class="folder-name">${ctx.monthName(ym)}${ym === hoy ? ' <em>actual</em>' : ''}</span>
+          <span class="folder-total">${money(t.emit)}</span>
+          <span class="folder-meta">${t.cant} ${t.cant === 1 ? 'factura' : 'facturas'} · ${cuota}</span>
+        </button>`;
+    }).join('');
+  }
 
   async function load() {
     q('[data-month-label]').textContent = ctx.monthName(month);
@@ -55,8 +132,10 @@ export async function render(el, ctx) {
     const sum = (l) => l.reduce((a, r) => a + Number(r.monto), 0);
 
     q('[data-stats]').innerHTML = `
-      <div class="stat"><span>Facturado en el mes</span><b>${money(sum(emit))}</b></div>
-      <div class="stat"><span>Recibido en el mes</span><b>${money(sum(reci))}</b></div>
+      <div class="stat"><span>Total facturado del mes</span><b>${money(sum(emit))}</b></div>
+      <div class="stat"><span>Recibido del mes</span><b>${money(sum(reci))}</b></div>
+      <div class="stat"><span>Saldo (facturado − recibido)</span><b class="${sum(emit) - sum(reci) < 0 ? 'neg' : 'pos'}">${money(sum(emit) - sum(reci))}</b></div>
+      <div class="stat"><span>Facturas cargadas</span><b>${facturas.length}</b></div>
       <div class="stat"><span>Facturado últimos 12 meses</span><b>${money(anualTotal)}</b></div>`;
 
     q('[data-cuota]').innerHTML = `
@@ -112,9 +191,11 @@ export async function render(el, ctx) {
   el.onclick = async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.dataset.folder) { month = b.dataset.folder; return show('month'); }
+    if (b.matches('[data-to-folders]')) return show('folders');
     if (b.matches('[data-prev]')) { month = ctx.addMonths(month, -1); return load(); }
     if (b.matches('[data-next]')) { month = ctx.addMonths(month, 1); return load(); }
-    if (b.matches('[data-new]')) return editFactura(null);
+    if (b.matches('[data-new]')) { if (view === 'folders') month = ctx.monthNow(); return editFactura(null); }
     if (b.matches('[data-cuota-edit]')) return editCuota();
     if (b.dataset.file) return openFile(b.dataset.file);
     if (b.dataset.edit) return editFactura(facturas.find((f) => f.id === Number(b.dataset.edit)));
@@ -176,7 +257,7 @@ export async function render(el, ctx) {
         ctx.toast('Factura guardada');
         month = data.fecha.slice(0, 7);
       },
-    }) && load();
+    }) && show(view);
   }
 
   async function editCuota() {
@@ -215,8 +296,8 @@ export async function render(el, ctx) {
         if (file && mes?.comprobante_path) await sb.storage.from(BUCKET).remove([mes.comprobante_path]);
         ctx.toast('Cuota guardada');
       },
-    }) && load();
+    }) && show(view);
   }
 
-  await load();
+  await show('folders');
 }
