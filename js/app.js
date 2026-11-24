@@ -382,15 +382,18 @@ const ctx = {
 if (location.hostname === 'localhost') window.__ctx = ctx;
 
 // Abre el formulario genérico. submit(form) debe lanzar un error si algo falla.
-function openForm({ title, html, submitLabel = 'Guardar', wide = false, init, submit }) {
+// extraLabel: segundo botón de guardar (submit recibe extra = true cuando se usa ese botón).
+function openForm({ title, html, submitLabel = 'Guardar', extraLabel = '', wide = false, init, submit }) {
   const dlg = $('#dlg-form');
   const f = $('#form-generic');
   dlg.classList.toggle('wide', wide);
+  // El botón principal va primero en el HTML (Enter lo usa) y se muestra último
   f.innerHTML = `<h2>${escapeHtml(title)}</h2>${html}
     <p class="msg" data-msg></p>
     <div class="modal-actions">
-      <button type="button" class="btn ghost" data-close>Cancelar</button>
-      <button type="submit" class="btn primary">${escapeHtml(submitLabel)}</button>
+      <button type="submit" class="btn primary" style="order:3">${escapeHtml(submitLabel)}</button>
+      ${extraLabel ? `<button type="submit" class="btn" value="extra" style="order:2">${escapeHtml(extraLabel)}</button>` : ''}
+      <button type="button" class="btn ghost" data-close style="order:1">Cancelar</button>
     </div>`;
   return new Promise((resolve) => {
     f.onsubmit = async (e) => {
@@ -398,7 +401,7 @@ function openForm({ title, html, submitLabel = 'Guardar', wide = false, init, su
       setMsg(f, '');
       busy(f, true);
       try {
-        const r = await submit(f);
+        const r = await submit(f, e.submitter?.value === 'extra');
         dlg.close();
         resolve(r ?? true);
       } catch (err) {

@@ -167,6 +167,7 @@ export async function render(el, ctx) {
         <td>${r.vendedor ? `<b>${esc(r.vendedor)}</b>` : '<span class="muted">—</span>'}
           ${r.ventas ? `<br><small>🔗 ${date(r.ventas.fecha)} · ${esc(r.ventas.cliente || r.ventas.descripcion || 'Venta #' + r.ventas.id)}</small>` : ''}</td>
         <td class="actions">
+          ${r.cliente ? `<button class="btn small" data-more="${r.id}" title="Agregar otra compra para ${esc(r.cliente)}">+ Otra</button>` : ''}
           <button class="btn small" data-edit="${r.id}">Editar</button>
           <button class="btn small danger" data-del="${r.id}">Borrar</button>
         </td>
@@ -195,6 +196,11 @@ export async function render(el, ctx) {
     if (b.matches('[data-next]')) { month = ctx.addMonths(month, 1); return loadMonth(); }
     if (b.matches('[data-new]')) return edit(null);
     if (b.dataset.edit) return edit(rows.find((r) => r.id === Number(b.dataset.edit)));
+    if (b.dataset.more) {
+      // Otra compra para el mismo cliente (copia cliente, "Venta de" y venta vinculada)
+      const r = rows.find((x) => x.id === Number(b.dataset.more));
+      return edit(null, { cliente: r.cliente, vendedor: r.vendedor, venta_id: r.venta_id, fecha: r.fecha });
+    }
     if (b.dataset.del) {
       const r = rows.find((x) => x.id === Number(b.dataset.del));
       if (!ctx.confirm(`¿Borrar la compra a "${r.proveedor}" por ${money(r.monto)}?`)) return;
@@ -204,22 +210,26 @@ export async function render(el, ctx) {
   };
 
   // ---------------------------------------------------------- formulario
-  async function edit(c) {
+  // pre = datos precargados para una compra nueva del mismo cliente
+  async function edit(c, pre = null) {
     const ventas = must(await sb.from('ventas').select('id, fecha, cliente, descripcion')
       .order('fecha', { ascending: false }).order('id', { ascending: false }).limit(200));
     await ctx.loadProveedores();
+    await loadClientes(ventas);
     // Compra nueva: se asocia sola a la última venta cargada (se puede cambiar)
-    const selected = c ? c.venta_id : ventas[0]?.id ?? null;
+    const selected = c ? c.venta_id : pre ? pre.venta_id : ventas[0]?.id ?? null;
+    const base = c ?? pre ?? {};   // cliente / vendedor a mostrar
     const opt = (v) => `<option value="${v.id}" ${v.id === selected ? 'selected' : ''}>
       ${date(v.fecha)} · ${esc(v.cliente || 'Sin cliente')} ${v.descripcion ? '— ' + esc(v.descripcion.slice(0, 40)) : ''}</option>`;
     // Proveedor: si no está en la lista habitual, se muestra como "Otro"
     const provActual = c?.proveedor ?? '';
     const provOtro = !!provActual && !ctx.PROVEEDORES.includes(provActual);
-    const defFecha = c?.fecha ?? (view === 'month' && month !== ctx.monthNow() ? `${month}-01` : ctx.today());
+    const defFecha = c?.fecha ?? pre?.fecha ?? (view === 'month' && month !== ctx.monthNow() ? `${month}-01` : ctx.today());
 
-    await ctx.openForm({
-      title: c ? 'Editar compra' : 'Nueva compra',
+    const r = await ctx.openForm({
+      title: c ? 'Editar compra' : pre?.cliente ? `Otra compra para ${pre.cliente}` : 'Nueva compra',
       wide: true,
+      extraLabel: '💾 Guardar y agregar otra a este cliente',
       html: `
         <div class="grid3">
           <label>Fecha <input name="fecha" type="date" value="${defFecha}" /></label>
@@ -231,7 +241,7 @@ export async function render(el, ctx) {
             </select>
             <input name="prov_otro" class="${provOtro ? '' : 'hidden'}" value="${esc(provOtro ? provActual : '')}" placeholder="Escribí el proveedor" />
           </label>
-          <label>Cliente <input name="cliente" value="${esc(c?.cliente ?? '')}" placeholder="Para qué cliente es" /></label>
+          <label>Cliente <input name="cliente" list="dl-clientes" value="${esc(base.cliente ?? '')}" placeholder="Para qué cliente es" /></label>
         </div>
         <label>Detalle <input name="detalle" value="${esc(c?.detalle ?? '')}" placeholder="Ej: perfiles, vidrio, herrajes" /></label>
 
@@ -253,7 +263,7 @@ export async function render(el, ctx) {
           <label>Venta de
             <select name="vendedor">
               <option value="">— Elegí —</option>
-              ${ctx.VENDEDORES.map((v) => `<option ${v === c?.vendedor ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+              ${ctx.VENDEDORES.map((v) => `<option ${v === base.vendedor ? 'selected' : ''}>${esc(v)}</option>`).join('')}
             </select>
           </label>
           <label>Vincular a una venta <small class="muted">(opcional, para la utilidad)</small>
@@ -287,7 +297,7 @@ export async function render(el, ctx) {
         };
         recalc();
       },
-      async submit(f) {
+      async submit(f, otra) {
         const n = ctx.num(f.neto.value), i105 = ctx.num(f.iva_105.value), i21 = ctx.num(f.iva_21.value);
         const data = {
           fecha: f.fecha.value,
@@ -302,14 +312,30 @@ export async function render(el, ctx) {
         if (!data.proveedor) throw new Error(f.prov_sel.value === '__otro' ? 'Escribí el nombre del proveedor.' : 'Elegí el proveedor.');
         if (!data.fecha) throw new Error('Poné la fecha.');
         if (!data.monto) throw new Error('Poné el monto sin IVA.');
+        if (otra && !data.cliente) throw new Error('Poné el cliente para poder cargarle otra compra.');
         data.pagos = ctx.readPagos(f);
         ctx.validarPagos(data.pagos);
         if (c) must(await sb.from('compras').update(data).eq('id', c.id));
         else must(await sb.from('compras').insert(data));
         ctx.toast(c ? 'Compra actualizada' : 'Compra guardada');
         month = data.fecha.slice(0, 7);
+        // "Guardar y agregar otra": se devuelve lo que se repite en la próxima compra
+        return otra ? { otra: { cliente: data.cliente, vendedor: data.vendedor, venta_id: data.venta_id, fecha: data.fecha } } : true;
       },
-    }) && show(view);
+    });
+    if (!r) return;
+    await show(view);
+    if (r.otra) edit(null, r.otra);
+  }
+
+  // Sugerencias de clientes (de compras y ventas ya cargadas)
+  async function loadClientes(ventas = []) {
+    const { data } = await sb.from('compras').select('cliente').neq('cliente', '').limit(2000);
+    const list = [...new Set([...(data || []).map((x) => x.cliente), ...ventas.map((v) => v.cliente).filter(Boolean)])]
+      .sort((a, b) => a.localeCompare(b, 'es'));
+    let dl = document.getElementById('dl-clientes');
+    if (!dl) { dl = document.createElement('datalist'); dl.id = 'dl-clientes'; document.body.appendChild(dl); }
+    dl.innerHTML = list.map((x) => `<option value="${esc(x)}">`).join('');
   }
 
   await show('folders');
