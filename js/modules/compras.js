@@ -8,6 +8,8 @@ export async function render(el, ctx) {
   let month = ctx.monthNow();
   let view = 'folders'; // folders | month
   let proveedor = '';
+  let cliente = '';   // filtro por cliente ('' = todos, '__sin' = sin cliente)
+  const porNombre = (a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' });
   let rows = [];
 
   el.innerHTML = `
@@ -32,6 +34,9 @@ export async function render(el, ctx) {
           <b data-month-label></b>
           <button class="btn small" data-next>›</button>
         </div>
+        <label class="inline">Cliente
+          <select data-cli><option value="">Todos</option></select>
+        </label>
         <label class="inline">Proveedor
           <select data-prov><option value="">Todos</option></select>
         </label>
@@ -126,7 +131,22 @@ export async function render(el, ctx) {
       .gte('fecha', from).lt('fecha', to)
       .order('fecha', { ascending: false }).order('id', { ascending: false });
     if (proveedor) query = query.eq('proveedor', proveedor);
-    rows = must(await query);
+    const todas = must(await query);
+
+    // Filtro por cliente: lista con los clientes del mes, en orden alfabético
+    const clientes = [...new Set(todas.map((r) => r.cliente).filter(Boolean))].sort(porNombre);
+    if (cliente && cliente !== '__sin' && !clientes.includes(cliente)) cliente = '';
+    q('[data-cli]').innerHTML = '<option value="">Todos</option>' +
+      clientes.map((x) => `<option ${x === cliente ? 'selected' : ''}>${esc(x)}</option>`).join('') +
+      (todas.some((r) => !r.cliente) ? `<option value="__sin" ${cliente === '__sin' ? 'selected' : ''}>(Sin cliente)</option>` : '');
+    rows = cliente === '__sin' ? todas.filter((r) => !r.cliente)
+      : cliente ? todas.filter((r) => r.cliente === cliente) : todas;
+
+    // Siempre ordenado alfabéticamente por cliente (sin cliente al final), y por fecha más nueva
+    rows.sort((a, b) => {
+      if (!a.cliente !== !b.cliente) return a.cliente ? -1 : 1;
+      return porNombre(a.cliente || '', b.cliente || '') || b.fecha.localeCompare(a.fecha) || b.id - a.id;
+    });
 
     const s = rows.reduce((a, r) => ({
       neto: a.neto + Number(neto(r)), i105: a.i105 + Number(r.iva_105),
@@ -185,12 +205,13 @@ export async function render(el, ctx) {
 
   el.onchange = (e) => {
     if (e.target.matches('[data-prov]')) { proveedor = e.target.value; loadMonth(); }
+    if (e.target.matches('[data-cli]')) { cliente = e.target.value; loadMonth(); }
   };
 
   el.onclick = async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.folder) { month = b.dataset.folder; proveedor = ''; return show('month'); }
+    if (b.dataset.folder) { month = b.dataset.folder; proveedor = ''; cliente = ''; return show('month'); }
     if (b.matches('[data-to-folders]')) return show('folders');
     if (b.matches('[data-prev]')) { month = ctx.addMonths(month, -1); return loadMonth(); }
     if (b.matches('[data-next]')) { month = ctx.addMonths(month, 1); return loadMonth(); }

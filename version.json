@@ -1,4 +1,4 @@
 {
-  "version": "2026-11-25.4",
-  "notes": "Compras: agregar varias compras al mismo cliente"
+  "version": "2026-11-25.5",
+  "notes": "Compras: filtro por cliente y orden alfabético por cliente"
 }
