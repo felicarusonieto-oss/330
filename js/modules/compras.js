@@ -43,7 +43,7 @@ export async function render(el, ctx) {
           <thead><tr>
             <th>Fecha</th><th>Proveedor</th><th>Cliente</th><th>Detalle</th>
             <th class="num">Sin IVA</th><th class="num">IVA 10,5%</th><th class="num">IVA 21%</th><th class="num">Total</th>
-            <th>Venta asociada</th><th></th>
+            <th>Venta de</th><th></th>
           </tr></thead>
           <tbody data-rows></tbody>
           <tfoot data-foot></tfoot>
@@ -141,11 +141,17 @@ export async function render(el, ctx) {
       <div class="stat"><span>IVA 21%</span><b>${money(s.i21)}</b></div>
       <div class="stat"><span>Compras</span><b>${rows.length}</b>${sinVenta ? ` <small class="neg">(${sinVenta} sin venta)</small>` : ''}</div>`;
 
-    const byProv = {};
-    rows.forEach((r) => { byProv[r.proveedor] = (byProv[r.proveedor] || 0) + Number(r.monto); });
+    const byProv = {}, byVend = {};
+    rows.forEach((r) => {
+      byProv[r.proveedor] = (byProv[r.proveedor] || 0) + Number(r.monto);
+      const v = r.vendedor || 'Sin indicar';
+      byVend[v] = (byVend[v] || 0) + Number(r.monto);
+    });
+    const chips = (o) => Object.entries(o).sort((a, b) => b[1] - a[1])
+      .map(([p, m]) => `<span class="chip">${esc(p)}<b>${money(m)}</b></span>`).join('');
     q('[data-chips]').innerHTML = rows.length
-      ? `<div class="chips-row"><small class="muted">Por proveedor:</small>${Object.entries(byProv).sort((a, b) => b[1] - a[1])
-          .map(([p, m]) => `<span class="chip">${esc(p)}<b>${money(m)}</b></span>`).join('')}</div>` : '';
+      ? `<div class="chips-row"><small class="muted">Por proveedor:</small>${chips(byProv)}</div>
+         <div class="chips-row"><small class="muted">Venta de:</small>${chips(byVend)}</div>` : '';
 
     q('[data-rows]').innerHTML = rows.length ? rows.map((r) => `
       <tr>
@@ -157,9 +163,8 @@ export async function render(el, ctx) {
         <td class="num">${Number(r.iva_105) ? money(r.iva_105) : '<span class="muted">—</span>'}</td>
         <td class="num">${Number(r.iva_21) ? money(r.iva_21) : '<span class="muted">—</span>'}</td>
         <td class="num"><b>${money(r.monto)}</b></td>
-        <td>${r.ventas
-          ? `${date(r.ventas.fecha)} · ${esc(r.ventas.cliente || r.ventas.descripcion || 'Venta #' + r.ventas.id)}`
-          : '<span class="tag pending">Sin asignar</span>'}</td>
+        <td>${r.vendedor ? `<b>${esc(r.vendedor)}</b>` : '<span class="muted">—</span>'}
+          ${r.ventas ? `<br><small>🔗 ${date(r.ventas.fecha)} · ${esc(r.ventas.cliente || r.ventas.descripcion || 'Venta #' + r.ventas.id)}</small>` : ''}</td>
         <td class="actions">
           <button class="btn small" data-edit="${r.id}">Editar</button>
           <button class="btn small danger" data-del="${r.id}">Borrar</button>
@@ -206,6 +211,9 @@ export async function render(el, ctx) {
     const selected = c ? c.venta_id : ventas[0]?.id ?? null;
     const opt = (v) => `<option value="${v.id}" ${v.id === selected ? 'selected' : ''}>
       ${date(v.fecha)} · ${esc(v.cliente || 'Sin cliente')} ${v.descripcion ? '— ' + esc(v.descripcion.slice(0, 40)) : ''}</option>`;
+    // Proveedor: si no está en la lista habitual, se muestra como "Otro"
+    const provActual = c?.proveedor ?? '';
+    const provOtro = !!provActual && !ctx.PROVEEDORES.includes(provActual);
     const defFecha = c?.fecha ?? (view === 'month' && month !== ctx.monthNow() ? `${month}-01` : ctx.today());
 
     await ctx.openForm({
@@ -214,7 +222,14 @@ export async function render(el, ctx) {
       html: `
         <div class="grid3">
           <label>Fecha <input name="fecha" type="date" value="${defFecha}" /></label>
-          <label>Proveedor <input name="proveedor" list="dl-proveedores" value="${esc(c?.proveedor ?? '')}" placeholder="Ej: Aluar, Vidriería Centro…" /></label>
+          <label>Proveedor
+            <select name="prov_sel">
+              <option value="">— Elegí —</option>
+              ${ctx.PROVEEDORES.map((p) => `<option ${p === provActual ? 'selected' : ''}>${esc(p)}</option>`).join('')}
+              <option value="__otro" ${provOtro ? 'selected' : ''}>Otro (escribir)…</option>
+            </select>
+            <input name="prov_otro" class="${provOtro ? '' : 'hidden'}" value="${esc(provOtro ? provActual : '')}" placeholder="Escribí el proveedor" />
+          </label>
           <label>Cliente <input name="cliente" value="${esc(c?.cliente ?? '')}" placeholder="Para qué cliente es" /></label>
         </div>
         <label>Detalle <input name="detalle" value="${esc(c?.detalle ?? '')}" placeholder="Ej: perfiles, vidrio, herrajes" /></label>
@@ -233,18 +248,31 @@ export async function render(el, ctx) {
         </div>
         <p class="hint" style="margin-top:-4px">Tocá <b>10,5%</b> o <b>21%</b> para calcular el IVA sobre el monto sin IVA. El total se suma solo.</p>
 
-        <label>Venta asociada
-          <select name="venta_id">
-            <option value="" ${selected ? '' : 'selected'}>— Sin asignar —</option>
-            ${ventas.map(opt).join('')}
-          </select>
-        </label>`,
+        <div class="grid2">
+          <label>Venta de
+            <select name="vendedor">
+              <option value="">— Elegí —</option>
+              ${ctx.VENDEDORES.map((v) => `<option ${v === c?.vendedor ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+            </select>
+          </label>
+          <label>Vincular a una venta <small class="muted">(opcional, para la utilidad)</small>
+            <select name="venta_id">
+              <option value="" ${selected ? '' : 'selected'}>— Sin vincular —</option>
+              ${ventas.map(opt).join('')}
+            </select>
+          </label>
+        </div>`,
       init(f) {
         const recalc = () => {
           const t = ctx.num(f.neto.value) + ctx.num(f.iva_105.value) + ctx.num(f.iva_21.value);
           f.querySelector('[data-total]').textContent = money(t);
         };
         f.oninput = recalc;
+        f.prov_sel.onchange = () => {
+          const otro = f.prov_sel.value === '__otro';
+          f.prov_otro.classList.toggle('hidden', !otro);
+          if (otro) f.prov_otro.focus();
+        };
         f.onclick = (e) => {
           const b = e.target.closest('[data-calc]');
           if (!b) return;
@@ -259,14 +287,15 @@ export async function render(el, ctx) {
         const n = ctx.num(f.neto.value), i105 = ctx.num(f.iva_105.value), i21 = ctx.num(f.iva_21.value);
         const data = {
           fecha: f.fecha.value,
-          proveedor: f.proveedor.value.trim(),
+          proveedor: (f.prov_sel.value === '__otro' ? f.prov_otro.value : f.prov_sel.value).trim(),
+          vendedor: f.vendedor.value,
           cliente: f.cliente.value.trim(),
           detalle: f.detalle.value.trim(),
           neto: n, iva_105: i105, iva_21: i21,
           monto: Math.round((n + i105 + i21) * 100) / 100,
           venta_id: f.venta_id.value ? Number(f.venta_id.value) : null,
         };
-        if (!data.proveedor) throw new Error('Poné el proveedor.');
+        if (!data.proveedor) throw new Error(f.prov_sel.value === '__otro' ? 'Escribí el nombre del proveedor.' : 'Elegí el proveedor.');
         if (!data.fecha) throw new Error('Poné la fecha.');
         if (!data.monto) throw new Error('Poné el monto sin IVA.');
         if (c) must(await sb.from('compras').update(data).eq('id', c.id));

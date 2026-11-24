@@ -294,9 +294,15 @@ const ctx = {
     const u = this.usersBasic.find((x) => x.id === id);
     return u ? (u.full_name || u.username) : '—';
   },
+  // Proveedores habituales (en Compras aparecen como opciones + "Otro")
+  PROVEEDORES: ['Alucor', 'Pintura Alucor', 'Exa', 'Piazze', 'Young', 'Bagneschi', 'Fernanda',
+                'Herramix', 'Jorge Nicolás', 'Multimarca Fragueiro'],
+  // Quién trae la venta (campo "Venta de" en Compras)
+  VENDEDORES: ['Felipe', 'Andrea', 'Diego', 'Braian', 'Sergio', 'Payo'],
   async loadProveedores() {
     const { data } = await sb.from('compras').select('proveedor').order('proveedor').limit(2000);
-    const list = [...new Set((data || []).map((r) => r.proveedor))];
+    const list = [...new Set([...this.PROVEEDORES, ...(data || []).map((r) => r.proveedor)])]
+      .sort((a, b) => a.localeCompare(b, 'es'));
     $('#dl-proveedores').innerHTML = list.map((p) => `<option value="${escapeHtml(p)}">`).join('');
     return list;
   },
