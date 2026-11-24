@@ -22,7 +22,8 @@ export async function render(el, ctx, { area }) {
   const { sb, esc, date, must } = ctx;
   const titulo = area === 'taller' ? 'Tareas Taller' : 'Tareas Oficina';
   const meId = ctx.me.id;
-  let tab = 'general';            // 'general' o id de usuario
+  // Felipe (admin) ve General + todos los perfiles; el resto ve solo lo suyo
+  let tab = ctx.isAdmin ? 'general' : meId;   // 'general' | id de usuario | 'asignadas'
   let estadoFiltro = 'abiertas';  // abiertas | hecha | todas
   let rows = [];
 
@@ -75,12 +76,20 @@ export async function render(el, ctx, { area }) {
           : c?.sinVer ? `<span class="ptab-badge new" title="Sin ver">${c.sinVer}</span>`
           : c?.abiertas ? `<span class="ptab-badge">${c.abiertas}</span>` : ''}
       </button>`;
-    q('[data-tabs]').innerHTML =
-      tabBtn('general', '📋 General', { abiertas: abiertas.length }, 'general') +
-      ctx.usersBasic.map((u) => tabBtn(u.id, `${u.id === meId ? '👤 ' : ''}${esc(nombre(u.id))}`, cuenta[u.id], u.id === meId ? 'mine' : '')).join('');
+    if (ctx.isAdmin) {
+      q('[data-tabs]').innerHTML =
+        tabBtn('general', '📋 General', { abiertas: abiertas.length }, 'general') +
+        ctx.usersBasic.map((u) => tabBtn(u.id, `${u.id === meId ? '👤 ' : ''}${esc(nombre(u.id))}`, cuenta[u.id], u.id === meId ? 'mine' : '')).join('');
+    } else {
+      const otros = abiertas.filter((t) => t.asignado_a !== meId).length;
+      q('[data-tabs]').innerHTML =
+        tabBtn(meId, '👤 Mis tareas', cuenta[meId], 'mine') +
+        tabBtn('asignadas', '📤 Que les cargué a otros', { abiertas: otros });
+    }
 
     q('[data-tab-hint]').textContent = tab === 'general'
       ? 'Todas las tareas de todos los perfiles.'
+      : tab === 'asignadas' ? 'Tareas que vos les cargaste a otras personas.'
       : tab === meId ? 'Tus tareas. Las nuevas tenés que marcarlas con “La vi”.'
       : `Tareas asignadas a ${nombre(tab)}.`;
 
@@ -88,7 +97,8 @@ export async function render(el, ctx, { area }) {
       .order('asignada_at', { ascending: false }).order('id', { ascending: false });
     if (estadoFiltro === 'abiertas') query = query.neq('estado', 'hecha');
     if (estadoFiltro === 'hecha') query = query.eq('estado', 'hecha');
-    if (tab !== 'general') query = query.eq('asignado_a', tab);
+    if (tab === 'asignadas') query = query.eq('creado_por', meId).neq('asignado_a', meId);
+    else if (tab !== 'general') query = query.eq('asignado_a', tab);
     rows = must(await query);
 
     // Primero las que yo todavía no vi
@@ -103,6 +113,8 @@ export async function render(el, ctx, { area }) {
 
   function vistoTag(t, ahora) {
     if (!t.asignado_a) return '<span class="tag">Sin asignar</span>';
+    // Los horarios solo los ve Felipe (admin)
+    if (!ctx.isAdmin) return t.visto_at ? '<span class="tag ok">✓ Vista</span>' : '<span class="tag prog">Sin ver</span>';
     if (t.visto_at) {
       const demora = new Date(t.visto_at) - new Date(t.asignada_at);
       return demora > DEMORA_MS
@@ -129,7 +141,9 @@ export async function render(el, ctx, { area }) {
           ${t.descripcion ? `<div class="task-desc">${esc(t.descripcion)}</div>` : ''}
           <div class="task-meta">
             <span class="tag ${t.asignado_a === meId ? 'admin' : ''}">👤 ${esc(t.asignado_a ? nombre(t.asignado_a) : 'Sin asignar')}</span>
-            <span class="tag" title="Fecha de publicación">🕒 Publicada ${fechaHora(t.asignada_at || t.created_at)} por ${esc(nombre(t.creado_por))}</span>
+            ${ctx.isAdmin
+              ? `<span class="tag" title="Fecha de publicación">🕒 Publicada ${fechaHora(t.asignada_at || t.created_at)} por ${esc(nombre(t.creado_por))}</span>`
+              : `<span class="tag">Cargada por ${esc(t.creado_por === meId ? 'vos' : nombre(t.creado_por))}</span>`}
             ${vistoTag(t, ahora)}
             ${t.fecha_limite ? `<span class="tag ${late ? 'late' : ''}">📅 ${late ? 'Venció' : 'Vence'} ${date(t.fecha_limite)}</span>` : ''}
             <span class="tag ${t.estado === 'hecha' ? 'ok' : t.estado === 'en_curso' ? 'prog' : 'pending'}">${ESTADOS[t.estado]}</span>
@@ -185,21 +199,32 @@ export async function render(el, ctx, { area }) {
   };
 
   async function edit(t) {
-    // En la pestaña de un perfil, la tarea nueva se asigna a ese perfil
-    const assigned = t ? t.asignado_a : (tab !== 'general' ? tab : null);
+    // Tarea nueva: se puede asignar a varias personas (se crea una por persona,
+    // así cada una marca su propio "La vi"). En la pestaña de un perfil, viene marcado ese perfil.
+    const preselect = t ? t.asignado_a : (tab !== 'general' && tab !== 'asignadas' ? tab : null);
+    const multi = !t;
     await ctx.openForm({
       title: t ? 'Editar tarea' : `Nueva tarea · ${area === 'taller' ? 'Taller' : 'Oficina'}`,
       html: `
         <label>Tarea <input name="titulo" value="${esc(t?.titulo ?? '')}" placeholder="Ej: Cortar perfiles para ventana de Pérez" /></label>
         <label>Detalle <textarea name="descripcion">${esc(t?.descripcion ?? '')}</textarea></label>
-        <div class="grid3">
+        ${multi ? `
+          <div class="field-label">Asignar a <small class="muted">(podés marcar varias personas)</small></div>
+          <div class="assign-options">
+            ${ctx.usersBasic.map((u) => `
+              <label class="assign-option">
+                <input type="checkbox" name="asignar" value="${u.id}" ${u.id === preselect ? 'checked' : ''} />
+                <span>${esc(nombre(u.id))}${u.id === meId ? ' (yo)' : ''}</span>
+              </label>`).join('')}
+          </div>` : ''}
+        <div class="${multi ? 'grid2' : 'grid3'}">
+          ${multi ? '' : `
           <label>Asignar a
             <select name="asignado_a">
-              <option value="">— Elegí —</option>
-              ${ctx.usersBasic.map((u) => `<option value="${u.id}" ${u.id === assigned ? 'selected' : ''}>
+              ${ctx.usersBasic.map((u) => `<option value="${u.id}" ${u.id === preselect ? 'selected' : ''}>
                 ${esc(nombre(u.id))}${u.id === meId ? ' (yo)' : ''}</option>`).join('')}
             </select>
-          </label>
+          </label>`}
           <label>Fecha límite <input name="fecha_limite" type="date" value="${t?.fecha_limite ?? ''}" /></label>
           <label>Estado
             <select name="estado">
@@ -207,20 +232,25 @@ export async function render(el, ctx, { area }) {
             </select>
           </label>
         </div>
-        <p class="hint">La persona asignada va a tener que marcarla con “La vi”. Si pasan 2 horas sin verla, Felipe recibe el aviso.</p>`,
+        <p class="hint">Cada persona asignada va a tener que marcarla con “La vi”.</p>`,
       async submit(f) {
         const data = {
           titulo: f.titulo.value.trim(),
           descripcion: f.descripcion.value.trim(),
-          asignado_a: f.asignado_a.value || null,
           fecha_limite: f.fecha_limite.value || null,
           estado: f.estado.value,
         };
         if (!data.titulo) throw new Error('Escribí la tarea.');
-        if (!data.asignado_a) throw new Error('Elegí a quién se la asignás.');
-        if (t) must(await sb.from('tareas').update(data).eq('id', t.id));
-        else must(await sb.from('tareas').insert({ ...data, area }));
-        ctx.toast(t ? 'Tarea actualizada' : 'Tarea publicada');
+        if (t) {
+          must(await sb.from('tareas').update({ ...data, asignado_a: f.asignado_a.value }).eq('id', t.id));
+          ctx.toast('Tarea actualizada');
+        } else {
+          const ids = [...f.querySelectorAll('[name=asignar]:checked')].map((c) => c.value);
+          if (!ids.length) throw new Error('Marcá al menos una persona.');
+          must(await sb.from('tareas').insert(ids.map((id) => ({ ...data, area, asignado_a: id }))));
+          ctx.toast(ids.length > 1 ? `Tarea publicada para ${ids.length} personas` : 'Tarea publicada');
+        }
+        ctx.refreshUnseen?.();
       },
     }) && load();
   }

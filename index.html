@@ -121,6 +121,14 @@
       <!-- Inicio: cuadrados de opciones -->
       <section id="page-home" class="page">
         <!-- Solo Felipe (admin): tareas sin ver hace más de 2 horas -->
+        <!-- Solo Felipe (admin): tareas que un usuario le cargó a otro -->
+        <div id="new-alert" class="card alert-new hidden">
+          <div class="section-title">
+            <h3>🔔 Tareas que cargaron otros</h3>
+            <button class="btn small" data-notice-all>Marcar todas como vistas</button>
+          </div>
+          <ul id="new-list"></ul>
+        </div>
         <div id="late-alert" class="card alert-late hidden">
           <h3>⚠ Demoraron en ver estas tareas (más de 2 horas)</h3>
           <ul id="late-list"></ul>

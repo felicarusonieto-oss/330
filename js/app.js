@@ -101,7 +101,7 @@ function showPage(name) {
   if (name === 'users' && me?.role !== 'admin') name = 'home'; // solo administradores
   $$('.page').forEach((p) => p.classList.toggle('hidden', p.id !== `page-${name}`));
   $$('#menu a').forEach((a) => a.classList.toggle('active', a.dataset.page === name));
-  if (name === 'home' && me) { refreshTaskBadges(); refreshLateAlert(); }
+  if (name === 'home' && me) { refreshTaskBadges(); refreshLateAlert(); refreshAdminNotices(); }
   if (name === 'users') loadUsers();
   if (name === 'my-password') { $('#my-password-form').reset(); setMsg($('#my-password-form'), ''); }
 }
@@ -169,7 +169,7 @@ async function refreshUnseen() {
       <div>
         <b>${escapeHtml(t.titulo)}</b> <span class="tag">${AREA[t.area]}</span>
         ${t.descripcion ? `<div class="task-desc">${escapeHtml(t.descripcion)}</div>` : ''}
-        <small class="muted">Publicada hace ${hace(Date.now() - new Date(t.asignada_at))} por ${escapeHtml(cap(ctx.userName(t.creado_por)))}</small>
+        <small class="muted">${me.role === 'admin' ? `Publicada hace ${hace(Date.now() - new Date(t.asignada_at))} por` : 'Cargada por'} ${escapeHtml(cap(ctx.userName(t.creado_por)))}</small>
       </div>
       <button class="btn primary" data-ack="${t.id}">✓ La vi</button>
     </li>`).join('');
@@ -194,6 +194,36 @@ async function refreshLateAlert() {
       <button class="link-btn" data-module="tareas-${t.area}">Ver</button></li>`).join('');
 }
 
+// Felipe: tareas que un usuario le cargó a otro (aviso hasta que lo marque como visto)
+async function refreshAdminNotices() {
+  const box = $('#new-alert');
+  if (me?.role !== 'admin') { box.classList.add('hidden'); return; }
+  const { data } = await sb.from('tareas')
+    .select('id, area, titulo, asignado_a, creado_por, created_at')
+    .is('aviso_admin_at', null).order('created_at', { ascending: false }).limit(50);
+  box.classList.toggle('hidden', !data?.length);
+  if (!data?.length) return;
+  if (!ctx.usersBasic.length) await ctx.loadUsersBasic();
+  const hora = (ts) => new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  $('#new-list').innerHTML = data.map((t) => `
+    <li>
+      <span><b>${escapeHtml(cap(ctx.userName(t.creado_por)))}</b> le cargó a <b>${escapeHtml(cap(ctx.userName(t.asignado_a)))}</b>:
+        “${escapeHtml(t.titulo)}” <span class="tag">${AREA[t.area]}</span> <small>· ${hora(t.created_at)}</small></span>
+      <button class="btn small" data-notice="${t.id}">OK</button>
+    </li>`).join('');
+}
+
+$('#new-alert').addEventListener('click', async (e) => {
+  const one = e.target.closest('[data-notice]');
+  const all = e.target.closest('[data-notice-all]');
+  if (!one && !all) return;
+  let q = sb.from('tareas').update({ aviso_admin_at: new Date().toISOString() });
+  q = one ? q.eq('id', Number(one.dataset.notice)) : q.is('aviso_admin_at', null);
+  const { error } = await q;
+  if (error) return toast(friendlyError(error));
+  refreshAdminNotices();
+});
+
 // No se puede cerrar con Escape: hay que marcar "La vi"
 $('#dlg-unseen').addEventListener('cancel', (e) => e.preventDefault());
 $('#dlg-unseen').addEventListener('click', async (e) => {
@@ -212,7 +242,7 @@ $('#dlg-unseen').addEventListener('click', async (e) => {
 setInterval(() => {
   if (!me || $('#app-screen').classList.contains('hidden')) return;
   refreshUnseen();
-  if (!$('#page-home').classList.contains('hidden')) refreshLateAlert();
+  if (!$('#page-home').classList.contains('hidden')) { refreshLateAlert(); refreshAdminNotices(); }
 }, 60_000);
 
 // --- herramientas compartidas con los módulos
