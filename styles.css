@@ -320,3 +320,31 @@ textarea {
 .dot-ok { color: var(--ok); }
 .dot-off { color: var(--danger); }
 .back-btn { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 14px; }
+
+/* Tareas: pestañas General + perfiles */
+.profile-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; border-bottom: 2px solid var(--line); }
+.ptab {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; cursor: pointer;
+  padding: 10px 14px; font: inherit; font-size: 14px; font-weight: 600; color: var(--muted);
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+}
+.ptab:hover { color: var(--text); }
+.ptab.on { color: var(--primary); border-bottom-color: var(--primary); }
+.ptab.general.on { color: #7a4b00; border-bottom-color: #f4b942; }
+.ptab-badge { background: #eef1f5; color: var(--muted); font-size: 11px; font-weight: 700; border-radius: 10px; padding: 1px 7px; }
+.ptab-badge.new { background: #e3eefa; color: var(--primary); }
+.ptab-badge.late { background: var(--danger); color: #fff; }
+.task.unseen { border: 2px solid #f4b942; background: #fffaf0; }
+
+/* Alerta de demoras (Felipe) */
+.alert-late { background: #fdecea; border-color: #f5b7b1; margin-bottom: 18px; }
+.alert-late h3 { color: var(--danger); }
+.alert-late ul { list-style: none; margin: 0; padding: 0; }
+.alert-late li { padding: 6px 0; border-top: 1px solid #f5b7b1; font-size: 14px; }
+.alert-late li:first-child { border-top: 0; }
+.alert-late small { color: var(--muted); }
+
+/* Ventana obligatoria "La vi" */
+.unseen-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.unseen-list li { display: flex; justify-content: space-between; align-items: center; gap: 14px; border: 2px solid #f4b942; background: #fffaf0; border-radius: 10px; padding: 12px 14px; }
+.unseen-list .btn { white-space: nowrap; }

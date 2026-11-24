@@ -120,6 +120,11 @@
     <main class="content">
       <!-- Inicio: cuadrados de opciones -->
       <section id="page-home" class="page">
+        <!-- Solo Felipe (admin): tareas sin ver hace más de 2 horas -->
+        <div id="late-alert" class="card alert-late hidden">
+          <h3>⚠ Demoraron en ver estas tareas (más de 2 horas)</h3>
+          <ul id="late-list"></ul>
+        </div>
         <div class="tiles">
           <a href="#" class="tile admin-only" data-module="ventas">
             <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -256,6 +261,13 @@
         <button type="submit" class="btn primary" value="ok">Guardar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Tareas nuevas: obliga a marcar "La vi" (no se puede cerrar hasta verlas todas) -->
+  <dialog id="dlg-unseen" class="modal wide">
+    <h2>📌 Tenés <span id="unseen-count"></span> nuevas</h2>
+    <p class="hint">Marcá cada una con <b>“La vi”</b> para continuar.</p>
+    <ul id="unseen-list" class="unseen-list"></ul>
   </dialog>
 
   <!-- Formulario genérico que usan los módulos -->

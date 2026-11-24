@@ -72,6 +72,7 @@ function showApp() {
   toggleSettings(false);
   showPage('home');
   if (isAdmin) refreshResetCount();
+  refreshUnseen();
 }
 
 function toggleSettings(open) {
@@ -100,7 +101,7 @@ function showPage(name) {
   if (name === 'users' && me?.role !== 'admin') name = 'home'; // solo administradores
   $$('.page').forEach((p) => p.classList.toggle('hidden', p.id !== `page-${name}`));
   $$('#menu a').forEach((a) => a.classList.toggle('active', a.dataset.page === name));
-  if (name === 'home' && me) refreshTaskBadges();
+  if (name === 'home' && me) { refreshTaskBadges(); refreshLateAlert(); }
   if (name === 'users') loadUsers();
   if (name === 'my-password') { $('#my-password-form').reset(); setMsg($('#my-password-form'), ''); }
 }
@@ -141,6 +142,78 @@ async function refreshTaskBadges() {
     b.classList.toggle('hidden', !count);
   }
 }
+
+// --- Tareas: "La vi" obligatorio y alerta de demoras para el admin
+const DEMORA_MS = 2 * 60 * 60 * 1000;
+const AREA = { taller: 'Taller', oficina: 'Oficina' };
+function hace(ms) {
+  const min = Math.max(0, Math.round(ms / 60000));
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+async function refreshUnseen() {
+  if (!me) return;
+  const { data } = await sb.from('tareas')
+    .select('id, area, titulo, descripcion, creado_por, asignada_at')
+    .eq('asignado_a', me.id).is('visto_at', null).neq('estado', 'hecha')
+    .order('asignada_at');
+  const dlg = $('#dlg-unseen');
+  if (!data?.length) { if (dlg.open) dlg.close(); return; }
+  if (!ctx.usersBasic.length) await ctx.loadUsersBasic();
+  $('#unseen-count').textContent = data.length === 1 ? '1 tarea' : `${data.length} tareas`;
+  $('#unseen-list').innerHTML = data.map((t) => `
+    <li>
+      <div>
+        <b>${escapeHtml(t.titulo)}</b> <span class="tag">${AREA[t.area]}</span>
+        ${t.descripcion ? `<div class="task-desc">${escapeHtml(t.descripcion)}</div>` : ''}
+        <small class="muted">Publicada hace ${hace(Date.now() - new Date(t.asignada_at))} por ${escapeHtml(cap(ctx.userName(t.creado_por)))}</small>
+      </div>
+      <button class="btn primary" data-ack="${t.id}">✓ La vi</button>
+    </li>`).join('');
+  if (!dlg.open) dlg.showModal();
+}
+
+async function refreshLateAlert() {
+  const box = $('#late-alert');
+  if (me?.role !== 'admin') { box.classList.add('hidden'); return; }
+  const cutoff = new Date(Date.now() - DEMORA_MS).toISOString();
+  const { data } = await sb.from('tareas')
+    .select('id, area, titulo, asignado_a, asignada_at')
+    .is('visto_at', null).not('asignado_a', 'is', null).neq('estado', 'hecha')
+    .lt('asignada_at', cutoff).order('asignada_at');
+  box.classList.toggle('hidden', !data?.length);
+  if (!data?.length) return;
+  if (!ctx.usersBasic.length) await ctx.loadUsersBasic();
+  $('#late-list').innerHTML = data.map((t) => `
+    <li><b>${escapeHtml(cap(ctx.userName(t.asignado_a)))}</b> no vio “${escapeHtml(t.titulo)}”
+      <span class="tag">${AREA[t.area]}</span>
+      <small>· publicada hace ${hace(Date.now() - new Date(t.asignada_at))}</small>
+      <button class="link-btn" data-module="tareas-${t.area}">Ver</button></li>`).join('');
+}
+
+// No se puede cerrar con Escape: hay que marcar "La vi"
+$('#dlg-unseen').addEventListener('cancel', (e) => e.preventDefault());
+$('#dlg-unseen').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-ack]');
+  if (!b) return;
+  b.disabled = true;
+  const { error } = await sb.from('tareas').update({ visto_at: new Date().toISOString() }).eq('id', Number(b.dataset.ack));
+  if (error) { b.disabled = false; return toast(friendlyError(error)); }
+  b.closest('li').remove();
+  await refreshUnseen();
+  if ($('#page-module').classList.contains('hidden') === false) toast('Marcada como vista');
+  refreshTaskBadges();
+});
+
+// Revisa cada minuto si llegaron tareas nuevas o hay demoras
+setInterval(() => {
+  if (!me || $('#app-screen').classList.contains('hidden')) return;
+  refreshUnseen();
+  if (!$('#page-home').classList.contains('hidden')) refreshLateAlert();
+}, 60_000);
 
 // --- herramientas compartidas con los módulos
 const moneyFmt = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
@@ -199,6 +272,7 @@ const ctx = {
   },
   confirm: (msg) => window.confirm(msg),
   openForm,
+  refreshUnseen: () => refreshUnseen(),
 };
 
 // Abre el formulario genérico. submit(form) debe lanzar un error si algo falla.
@@ -260,6 +334,7 @@ async function route() {
 }
 
 async function logout() {
+  if ($('#dlg-unseen').open) $('#dlg-unseen').close();
   await sb.auth.signOut();
   me = null;
   showAuth('login-form');
