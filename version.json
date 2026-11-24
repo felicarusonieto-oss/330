@@ -1,4 +1,4 @@
 {
-  "version": "2026-11-25.2",
-  "notes": "Compras: lista de proveedores con opción Otro y campo Venta de"
+  "version": "2026-11-25.3",
+  "notes": "Ventas: total, diferencia, quién vendió y formas de pago. Compras: formas de pago"
 }

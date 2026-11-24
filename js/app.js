@@ -297,8 +297,75 @@ const ctx = {
   // Proveedores habituales (en Compras aparecen como opciones + "Otro")
   PROVEEDORES: ['Alucor', 'Pintura Alucor', 'Exa', 'Piazze', 'Young', 'Bagneschi', 'Fernanda',
                 'Herramix', 'Jorge Nicolás', 'Multimarca Fragueiro'],
-  // Quién trae la venta (campo "Venta de" en Compras)
+  // Quién trae la venta (campo "Venta de" en Compras y Ventas)
   VENDEDORES: ['Felipe', 'Andrea', 'Diego', 'Braian', 'Sergio', 'Payo'],
+
+  // ---- Formas de pago (Ventas y Compras): varias por operación, cada una con su monto
+  MEDIOS_PAGO: { transf_payo: 'Transferencia Payo', transf_felipe: 'Transferencia Felipe', transf_cliente: 'Transferencia cliente', efectivo: 'Efectivo' },
+  pagoLineHtml(p = {}) {
+    return `<div class="pago-line">
+      <select name="pago_medio">
+        <option value="">— Forma de pago —</option>
+        ${Object.entries(this.MEDIOS_PAGO).map(([k, v]) => `<option value="${k}" ${p.medio === k ? 'selected' : ''}>${v}</option>`).join('')}
+      </select>
+      <input name="pago_monto" inputmode="decimal" placeholder="$ Monto" value="${p.monto ?? ''}" />
+      <button type="button" class="x" data-pago-del title="Quitar">✕</button>
+    </div>`;
+  },
+  // Bloque completo para un formulario. label = "Cobrado" (ventas) o "Pagado" (compras)
+  pagosHtml(pagos = [], label = 'Pagado') {
+    const list = pagos.length ? pagos : [{}];
+    return `<div class="pagos-box">
+      <div class="section-title"><h3>Formas de pago</h3>
+        <button type="button" class="btn small" data-pago-add>+ Agregar forma de pago</button></div>
+      <div data-pagos>${list.map((p) => this.pagoLineHtml(p)).join('')}</div>
+      <div class="pagos-sum"><span>${label}: <b data-pago-total>$ 0</b></span> <span data-pago-falta></span></div>
+    </div>`;
+  },
+  // Engancha los botones y el cálculo "pagado / falta". getTotal() = total de la operación
+  bindPagos(f, getTotal) {
+    const upd = () => {
+      const pagado = this.readPagos(f).reduce((a, p) => a + p.monto, 0);
+      const total = getTotal();
+      f.querySelector('[data-pago-total]').textContent = this.money(pagado);
+      const falta = Math.round((total - pagado) * 100) / 100;
+      const el = f.querySelector('[data-pago-falta]');
+      el.className = falta > 0 ? 'neg' : falta < 0 ? 'neg' : 'pos';
+      el.textContent = !total ? '' : falta > 0 ? `· Falta ${this.money(falta)}` : falta < 0 ? `· Sobra ${this.money(-falta)}` : '· Completo ✓';
+    };
+    // Los eventos van en el bloque de pagos (se crea nuevo en cada formulario).
+    // Si cambia el total de la operación, el módulo llama a la función que se devuelve.
+    const box = f.querySelector('.pagos-box');
+    box.addEventListener('input', upd);
+    box.addEventListener('change', upd);
+    box.addEventListener('click', (e) => {
+      if (e.target.closest('[data-pago-add]')) {
+        f.querySelector('[data-pagos]').insertAdjacentHTML('beforeend', this.pagoLineHtml());
+        f.querySelector('.pago-line:last-child select').focus();
+      }
+      const del = e.target.closest('[data-pago-del]');
+      if (del) del.closest('.pago-line').remove();
+      upd();
+    });
+    upd();
+    return upd;
+  },
+  // Lee las líneas con forma de pago y monto (ignora las vacías)
+  readPagos(f) {
+    return [...f.querySelectorAll('.pago-line')].map((l) => ({
+      medio: l.querySelector('[name=pago_medio]').value,
+      monto: this.num(l.querySelector('[name=pago_monto]').value),
+    })).filter((p) => p.medio || p.monto);
+  },
+  validarPagos(pagos) {
+    if (pagos.some((p) => !p.medio)) throw new Error('Elegí la forma de pago en cada línea.');
+    if (pagos.some((p) => !p.monto)) throw new Error('Poné el monto en cada forma de pago.');
+  },
+  // Resumen corto para tablas: "Efectivo $ 10.000 · Transf. Payo $ 5.000"
+  pagosResumen(pagos = []) {
+    if (!pagos?.length) return '<span class="muted">—</span>';
+    return pagos.map((p) => `<span class="pago-chip pago-${p.medio}">${escapeHtml((this.MEDIOS_PAGO[p.medio] || p.medio).replace('Transferencia', 'Transf.'))} ${this.money(p.monto)}</span>`).join(' ');
+  },
   async loadProveedores() {
     const { data } = await sb.from('compras').select('proveedor').order('proveedor').limit(2000);
     const list = [...new Set([...this.PROVEEDORES, ...(data || []).map((r) => r.proveedor)])]
@@ -310,6 +377,9 @@ const ctx = {
   openForm,
   refreshUnseen: () => refreshUnseen(),
 };
+
+// Solo para pruebas en la PC (no se expone en la página publicada)
+if (location.hostname === 'localhost') window.__ctx = ctx;
 
 // Abre el formulario genérico. submit(form) debe lanzar un error si algo falla.
 function openForm({ title, html, submitLabel = 'Guardar', wide = false, init, submit }) {

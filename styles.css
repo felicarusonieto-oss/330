@@ -381,3 +381,23 @@ textarea {
 .compras-table { font-size: 14px; }
 .total-row td { background: #f6f8fb; border-top: 2px solid var(--line); }
 @media (max-width: 720px) { .iva-grid { grid-template-columns: 1fr 1fr; } }
+
+/* Formas de pago (Ventas y Compras) */
+.pagos-box { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; background: #fbfcfe; }
+.pago-line { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.pago-line select, .pago-line input { margin: 0; }
+.pago-line .x { border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px 6px; }
+.pago-line .x:hover { color: var(--danger); }
+.pagos-sum { font-size: 14px; color: var(--muted); }
+.pagos-sum b { color: var(--text); }
+.pago-chip { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 10px; padding: 2px 8px; margin: 1px 0; color: #fff; white-space: nowrap; }
+.pago-transf_payo { background: #7d3c98; }
+.pago-transf_felipe { background: #1f5f9e; }
+.pago-transf_cliente { background: #009ee3; }
+.pago-efectivo { background: #1e8449; }
+
+/* Ventas: compras asociadas */
+.assoc-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.assoc-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.assoc-list li:first-child { border-top: 0; }
+.assoc-empty { font-size: 14px; color: var(--muted); margin: 0 0 8px; }

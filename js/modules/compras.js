@@ -43,7 +43,7 @@ export async function render(el, ctx) {
           <thead><tr>
             <th>Fecha</th><th>Proveedor</th><th>Cliente</th><th>Detalle</th>
             <th class="num">Sin IVA</th><th class="num">IVA 10,5%</th><th class="num">IVA 21%</th><th class="num">Total</th>
-            <th>Venta de</th><th></th>
+            <th>Forma de pago</th><th>Venta de</th><th></th>
           </tr></thead>
           <tbody data-rows></tbody>
           <tfoot data-foot></tfoot>
@@ -163,6 +163,7 @@ export async function render(el, ctx) {
         <td class="num">${Number(r.iva_105) ? money(r.iva_105) : '<span class="muted">—</span>'}</td>
         <td class="num">${Number(r.iva_21) ? money(r.iva_21) : '<span class="muted">—</span>'}</td>
         <td class="num"><b>${money(r.monto)}</b></td>
+        <td>${ctx.pagosResumen(r.pagos)}</td>
         <td>${r.vendedor ? `<b>${esc(r.vendedor)}</b>` : '<span class="muted">—</span>'}
           ${r.ventas ? `<br><small>🔗 ${date(r.ventas.fecha)} · ${esc(r.ventas.cliente || r.ventas.descripcion || 'Venta #' + r.ventas.id)}</small>` : ''}</td>
         <td class="actions">
@@ -170,14 +171,14 @@ export async function render(el, ctx) {
           <button class="btn small danger" data-del="${r.id}">Borrar</button>
         </td>
       </tr>`).join('')
-      : '<tr><td colspan="10" class="empty">No hay compras en este mes.</td></tr>';
+      : '<tr><td colspan="11" class="empty">No hay compras en este mes.</td></tr>';
 
     q('[data-foot]').innerHTML = rows.length ? `
       <tr class="total-row">
         <td colspan="4"><b>Totales del mes</b></td>
         <td class="num">${money(s.neto)}</td><td class="num">${money(s.i105)}</td>
         <td class="num">${money(s.i21)}</td><td class="num"><b>${money(s.total)}</b></td>
-        <td colspan="2"></td>
+        <td colspan="3"></td>
       </tr>` : '';
   }
 
@@ -261,11 +262,14 @@ export async function render(el, ctx) {
               ${ventas.map(opt).join('')}
             </select>
           </label>
-        </div>`,
+        </div>
+        ${ctx.pagosHtml(c?.pagos || [], 'Pagado')}`,
       init(f) {
+        const totalCompra = () => ctx.num(f.neto.value) + ctx.num(f.iva_105.value) + ctx.num(f.iva_21.value);
+        const updPagos = ctx.bindPagos(f, totalCompra);
         const recalc = () => {
-          const t = ctx.num(f.neto.value) + ctx.num(f.iva_105.value) + ctx.num(f.iva_21.value);
-          f.querySelector('[data-total]').textContent = money(t);
+          f.querySelector('[data-total]').textContent = money(totalCompra());
+          updPagos();
         };
         f.oninput = recalc;
         f.prov_sel.onchange = () => {
@@ -298,6 +302,8 @@ export async function render(el, ctx) {
         if (!data.proveedor) throw new Error(f.prov_sel.value === '__otro' ? 'Escribí el nombre del proveedor.' : 'Elegí el proveedor.');
         if (!data.fecha) throw new Error('Poné la fecha.');
         if (!data.monto) throw new Error('Poné el monto sin IVA.');
+        data.pagos = ctx.readPagos(f);
+        ctx.validarPagos(data.pagos);
         if (c) must(await sb.from('compras').update(data).eq('id', c.id));
         else must(await sb.from('compras').insert(data));
         ctx.toast(c ? 'Compra actualizada' : 'Compra guardada');
