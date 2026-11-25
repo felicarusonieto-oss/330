@@ -118,6 +118,7 @@ const MODULES = {
   gastos:           { file: 'gastos',      admin: true },
   'tareas-taller':  { file: 'tareas',      opts: { area: 'taller' } },
   'tareas-oficina': { file: 'tareas',      opts: { area: 'oficina' } },
+  recordatorios:    { file: 'recordatorios' },
 };
 
 async function openModule(name) {
@@ -226,48 +227,18 @@ $('#new-alert').addEventListener('click', async (e) => {
   refreshAdminNotices();
 });
 
-// --- Recordatorios (inicio): los ven y escriben todos, con autor y fecha
+// --- Recordatorios: el cuadrado muestra cuántos escribieron otros desde tu última visita
+const recVistoKey = () => `rec_visto_${me?.id}`;
 async function refreshReminders() {
   if (!me) return;
-  const { data, error } = await sb.from('recordatorios')
-    .select('id, texto, creado_por, created_at').order('created_at', { ascending: false }).limit(100);
-  if (error) return;
-  if (!ctx.usersBasic.length || data.some((r) => !ctx.usersBasic.find((u) => u.id === r.creado_por))) {
-    await ctx.loadUsersBasic();
-  }
-  const hora = (ts) => new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  $('#reminder-list').innerHTML = data.length ? data.map((r) => `
-    <li>
-      <div>
-        <div class="reminder-text">${escapeHtml(r.texto)}</div>
-        <small class="muted">— <b>${escapeHtml(cap(ctx.userName(r.creado_por)))}</b> · ${hora(r.created_at)}</small>
-      </div>
-      ${me.role === 'admin' || r.creado_por === me.id
-        ? `<button class="x" data-reminder-del="${r.id}" title="Borrar recordatorio">✕</button>` : ''}
-    </li>`).join('')
-    : '<li class="muted">No hay recordatorios. ¡Escribí el primero!</li>';
+  const desde = localStorage.getItem(recVistoKey()) || '1970-01-01T00:00:00Z';
+  const { count } = await sb.from('recordatorios').select('id', { count: 'exact', head: true })
+    .gt('created_at', desde).neq('creado_por', me.id);
+  const b = $('#badge-recordatorios');
+  b.textContent = count || 0;
+  b.title = 'Recordatorios nuevos';
+  b.classList.toggle('hidden', !count);
 }
-
-$('#reminder-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const f = e.currentTarget;
-  const texto = f.texto.value.trim();
-  if (!texto) return f.texto.focus();
-  busy(f, true);
-  const { error } = await sb.from('recordatorios').insert({ texto });
-  busy(f, false);
-  if (error) return toast(friendlyError(error));
-  f.reset();
-  refreshReminders();
-});
-
-$('#reminder-list').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-reminder-del]');
-  if (!b || !confirm('¿Borrar este recordatorio?')) return;
-  const { error } = await sb.from('recordatorios').delete().eq('id', Number(b.dataset.reminderDel));
-  if (error) return toast(friendlyError(error));
-  refreshReminders();
-});
 
 // No se puede cerrar con Escape: hay que marcar "La vi"
 $('#dlg-unseen').addEventListener('cancel', (e) => e.preventDefault());
@@ -421,6 +392,7 @@ const ctx = {
   confirm: (msg) => window.confirm(msg),
   openForm,
   refreshUnseen: () => refreshUnseen(),
+  marcarRecordatoriosVistos: () => { localStorage.setItem(recVistoKey(), new Date().toISOString()); refreshReminders(); },
 };
 
 // Solo para pruebas en la PC (no se expone en la página publicada)

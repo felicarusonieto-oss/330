@@ -129,15 +129,6 @@
           </div>
           <ul id="new-list"></ul>
         </div>
-        <!-- Recordatorios: los ven y escriben todos -->
-        <div id="reminders" class="card reminders">
-          <div class="section-title"><h3>📝 Recordatorios</h3></div>
-          <form id="reminder-form" class="reminder-form" autocomplete="off">
-            <input name="texto" maxlength="500" placeholder="Escribí un recordatorio para todos…" />
-            <button type="submit" class="btn primary">Agregar</button>
-          </form>
-          <ul id="reminder-list" class="reminder-list"></ul>
-        </div>
         <div id="late-alert" class="card alert-late hidden">
           <h3>⚠ Demoraron en ver estas tareas (más de 2 horas)</h3>
           <ul id="late-list"></ul>
@@ -174,6 +165,12 @@
               <rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 13l2 2 4-4"/></svg>
             <span class="tile-title">TAREAS OFICINA</span>
             <span id="badge-tareas-oficina" class="badge hidden"></span>
+          </a>
+          <a href="#" class="tile" data-module="recordatorios">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5z"/><path d="M15 3v6h6"/><path d="M7 13h6M7 17h10"/></svg>
+            <span class="tile-title">RECORDATORIOS</span>
+            <span id="badge-recordatorios" class="badge hidden"></span>
           </a>
           <a href="#" class="tile admin-only" data-page="users">
             <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6"
