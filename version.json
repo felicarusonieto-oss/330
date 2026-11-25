@@ -1,4 +1,4 @@
 {
-  "version": "2026-11-25.5",
-  "notes": "Compras: filtro por cliente y orden alfabético por cliente"
+  "version": "2026-11-25.6",
+  "notes": "Compras y Ventas solo para Felipe y Andrea. Recordatorios en el inicio"
 }

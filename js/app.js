@@ -67,6 +67,8 @@ function showApp() {
   $('#app-screen').classList.remove('hidden');
   const isAdmin = me.role === 'admin';
   $$('.admin-only').forEach((el) => el.classList.toggle('hidden', !isAdmin));
+  // Compras y Ventas: solo usuarios con acceso comercial (felipe y andrea)
+  $$('.comercial-only').forEach((el) => el.classList.toggle('hidden', !me.acceso_comercial));
   $('#current-user').innerHTML =
     `<b>${escapeHtml(me.full_name || me.username)}</b><br><small>${isAdmin ? 'Administrador' : 'Usuario'}</small>`;
   toggleSettings(false);
@@ -101,7 +103,7 @@ function showPage(name) {
   if (name === 'users' && me?.role !== 'admin') name = 'home'; // solo administradores
   $$('.page').forEach((p) => p.classList.toggle('hidden', p.id !== `page-${name}`));
   $$('#menu a').forEach((a) => a.classList.toggle('active', a.dataset.page === name));
-  if (name === 'home' && me) { refreshTaskBadges(); refreshLateAlert(); refreshAdminNotices(); }
+  if (name === 'home' && me) { refreshTaskBadges(); refreshLateAlert(); refreshAdminNotices(); refreshReminders(); }
   if (name === 'users') loadUsers();
   if (name === 'my-password') { $('#my-password-form').reset(); setMsg($('#my-password-form'), ''); }
 }
@@ -110,8 +112,8 @@ function showPage(name) {
 // Cada módulo vive en js/modules/<archivo>.js y exporta render(contenedor, ctx, opciones)
 const V = new URL(import.meta.url).search;
 const MODULES = {
-  ventas:           { file: 'ventas',      admin: true },
-  compras:          { file: 'compras',     admin: true },
+  ventas:           { file: 'ventas',      comercial: true },
+  compras:          { file: 'compras',     comercial: true },
   monotributo:      { file: 'monotributo', admin: true },
   gastos:           { file: 'gastos',      admin: true },
   'tareas-taller':  { file: 'tareas',      opts: { area: 'taller' } },
@@ -120,7 +122,7 @@ const MODULES = {
 
 async function openModule(name) {
   const mod = MODULES[name];
-  if (!mod || (mod.admin && me?.role !== 'admin')) return showPage('home');
+  if (!mod || (mod.admin && me?.role !== 'admin') || (mod.comercial && !me?.acceso_comercial)) return showPage('home');
   showPage('module');
   const el = $('#page-module');
   el.onclick = el.onchange = el.oninput = null; // limpia eventos del módulo anterior
@@ -224,6 +226,49 @@ $('#new-alert').addEventListener('click', async (e) => {
   refreshAdminNotices();
 });
 
+// --- Recordatorios (inicio): los ven y escriben todos, con autor y fecha
+async function refreshReminders() {
+  if (!me) return;
+  const { data, error } = await sb.from('recordatorios')
+    .select('id, texto, creado_por, created_at').order('created_at', { ascending: false }).limit(100);
+  if (error) return;
+  if (!ctx.usersBasic.length || data.some((r) => !ctx.usersBasic.find((u) => u.id === r.creado_por))) {
+    await ctx.loadUsersBasic();
+  }
+  const hora = (ts) => new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  $('#reminder-list').innerHTML = data.length ? data.map((r) => `
+    <li>
+      <div>
+        <div class="reminder-text">${escapeHtml(r.texto)}</div>
+        <small class="muted">— <b>${escapeHtml(cap(ctx.userName(r.creado_por)))}</b> · ${hora(r.created_at)}</small>
+      </div>
+      ${me.role === 'admin' || r.creado_por === me.id
+        ? `<button class="x" data-reminder-del="${r.id}" title="Borrar recordatorio">✕</button>` : ''}
+    </li>`).join('')
+    : '<li class="muted">No hay recordatorios. ¡Escribí el primero!</li>';
+}
+
+$('#reminder-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+  const texto = f.texto.value.trim();
+  if (!texto) return f.texto.focus();
+  busy(f, true);
+  const { error } = await sb.from('recordatorios').insert({ texto });
+  busy(f, false);
+  if (error) return toast(friendlyError(error));
+  f.reset();
+  refreshReminders();
+});
+
+$('#reminder-list').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-reminder-del]');
+  if (!b || !confirm('¿Borrar este recordatorio?')) return;
+  const { error } = await sb.from('recordatorios').delete().eq('id', Number(b.dataset.reminderDel));
+  if (error) return toast(friendlyError(error));
+  refreshReminders();
+});
+
 // No se puede cerrar con Escape: hay que marcar "La vi"
 $('#dlg-unseen').addEventListener('cancel', (e) => e.preventDefault());
 $('#dlg-unseen').addEventListener('click', async (e) => {
@@ -242,7 +287,7 @@ $('#dlg-unseen').addEventListener('click', async (e) => {
 setInterval(() => {
   if (!me || $('#app-screen').classList.contains('hidden')) return;
   refreshUnseen();
-  if (!$('#page-home').classList.contains('hidden')) { refreshLateAlert(); refreshAdminNotices(); }
+  if (!$('#page-home').classList.contains('hidden')) { refreshLateAlert(); refreshAdminNotices(); refreshReminders(); }
 }, 60_000);
 
 // --- herramientas compartidas con los módulos
@@ -528,6 +573,7 @@ function renderUsers() {
         </select>
       </td>
       <td>${u.active ? '<span class="tag ok">Activo</span>' : '<span class="tag off">Inactivo</span>'}</td>
+      <td>${u.acceso_comercial ? '<span class="tag ok">✓ Sí</span>' : '<span class="muted">No</span>'}</td>
       <td>${u.must_change_password ? '<span class="tag pending">Debe cambiarla</span>' : '—'}</td>
       <td class="actions">
         <button class="btn small" data-edit="${u.id}">Editar</button>
@@ -608,6 +654,7 @@ function openUserDialog(user) {
     f.full_name.value = user.full_name;
     f.role.value = user.role;
     f.active.checked = user.active;
+    f.acceso_comercial.checked = !!user.acceso_comercial;
   }
   dlg.showModal();
 }
@@ -617,6 +664,7 @@ $('#user-form').addEventListener('submit', async (e) => {
   const f = e.currentTarget;
   busy(f, true);
   let error;
+  let userId = editing?.id;
   if (editing) {
     ({ error } = await sb.rpc('admin_update_user', {
       p_user_id: editing.id,
@@ -625,12 +673,18 @@ $('#user-form').addEventListener('submit', async (e) => {
       p_active: f.active.checked,
     }));
   } else {
-    ({ error } = await sb.rpc('admin_create_user', {
+    let data;
+    ({ data, error } = await sb.rpc('admin_create_user', {
       p_username: f.username.value,
       p_full_name: f.full_name.value,
       p_password: f.password.value,
       p_role: f.role.value,
     }));
+    userId = data;
+  }
+  // Acceso a Compras y Ventas (solo si cambió)
+  if (!error && userId && f.acceso_comercial.checked !== !!editing?.acceso_comercial) {
+    ({ error } = await sb.rpc('admin_set_comercial', { p_user_id: userId, p_value: f.acceso_comercial.checked }));
   }
   busy(f, false);
   if (error) return setMsg(f, friendlyError(error));

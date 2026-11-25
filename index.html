@@ -129,17 +129,26 @@
           </div>
           <ul id="new-list"></ul>
         </div>
+        <!-- Recordatorios: los ven y escriben todos -->
+        <div id="reminders" class="card reminders">
+          <div class="section-title"><h3>📝 Recordatorios</h3></div>
+          <form id="reminder-form" class="reminder-form" autocomplete="off">
+            <input name="texto" maxlength="500" placeholder="Escribí un recordatorio para todos…" />
+            <button type="submit" class="btn primary">Agregar</button>
+          </form>
+          <ul id="reminder-list" class="reminder-list"></ul>
+        </div>
         <div id="late-alert" class="card alert-late hidden">
           <h3>⚠ Demoraron en ver estas tareas (más de 2 horas)</h3>
           <ul id="late-list"></ul>
         </div>
         <div class="tiles">
-          <a href="#" class="tile admin-only" data-module="ventas">
+          <a href="#" class="tile comercial-only" data-module="ventas">
             <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
             <span class="tile-title">VENTAS</span>
           </a>
-          <a href="#" class="tile admin-only" data-module="compras">
+          <a href="#" class="tile comercial-only" data-module="compras">
             <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.6 12.4a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 7H6"/></svg>
             <span class="tile-title">COMPRAS</span>
@@ -197,7 +206,7 @@
           <table class="table">
             <thead>
               <tr>
-                <th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Clave</th><th></th>
+                <th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Compras y Ventas</th><th>Clave</th><th></th>
               </tr>
             </thead>
             <tbody id="users-tbody"></tbody>
@@ -247,6 +256,7 @@
         <input name="password" type="text" minlength="6" />
       </label>
       <label class="only-edit check"><input name="active" type="checkbox" /> Activo</label>
+      <label class="check"><input name="acceso_comercial" type="checkbox" /> Acceso a Compras y Ventas</label>
       <p class="hint only-new">El usuario deberá cambiar la clave en su primer ingreso.</p>
       <p class="msg" data-msg></p>
       <div class="modal-actions">
